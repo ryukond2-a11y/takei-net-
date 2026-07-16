@@ -331,4 +331,50 @@
       </div>
       
       <div style="flex: 1; display: flex; flex-direction: column; height: 100%;">
-        <div id="dm-chat-header" style="padding: 15px; border-bottom: 1px solid #2f3
+        <div id="dm-chat-header" style="padding: 15px; border-bottom: 1px solid #2f3336; font-weight: bold; font-size: 18px;">
+          相手を選択するかIDで検索してね
+        </div>
+        <div id="dm-messages" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
+        <div id="dm-input-area" style="padding: 15px; border-top: 1px solid #2f3336; display: none; gap: 10px;">
+          <input type="text" id="dm-message-input" placeholder="新しいメッセージを入力..." style="flex: 1; padding: 12px; border-radius: 9999px; background: #15181c; border: 1px solid #2f3336; color: white;">
+          <button id="btn-send-dm" style="background: #1d9bf0; color: white; border: none; padding: 12px 24px; border-radius: 9999px; cursor: pointer; font-weight: bold;">送信</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="reply-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+        <span style="font-weight: bold;">返信する</span>
+        <button id="close-reply-modal" style="background: none; border: none; color: #71767b; font-size: 16px; cursor: pointer;">✕</button>
+      </div>
+      <div id="reply-target-post-content" style="color: #71767b; margin-bottom: 15px; font-size: 14px; padding-left: 10px; border-left: 2px solid #2f3336;"></div>
+      <textarea id="reply-input" style="width: 100%; background: transparent; border: none; color: white; font-size: 16px; resize: none; outline: none; margin-bottom: 15px;" placeholder="返信をツイート..." rows="4"></textarea>
+      <button id="submit-reply" class="tweet-btn">返信する</button>
+    </div>
+  </div>
+
+  <div id="profile-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="width: 400px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+        <span style="font-weight: bold; font-size: 18px;">プロフィールを編集</span>
+        <button id="close-profile-modal" style="background: none; border: none; color: #71767b; font-size: 16px; cursor: pointer;">✕</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div>
+          <label style="display:block; margin-bottom: 5px; font-size: 13px; color:#71767b;">お名前</label>
+          <input type="text" id="edit-display-name" style="width:100%; padding:10px; border-radius:4px; border:1px solid #2f3336; background:#000; color:#fff; box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="display:block; margin-bottom: 5px; font-size: 13px; color:#71767b;">新しいアバター画像</label>
+          <input type="file" id="edit-avatar-file" accept="image/*" style="width:100%; color:#fff;">
+        </div>
+        <button id="btn-save-profile" class="tweet-btn" style="float:none; width:100%; margin-top:10px;">保存する</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app_v2_2.js"></script>
+</body>
+</html>
