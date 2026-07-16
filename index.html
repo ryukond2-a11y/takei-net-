@@ -10,7 +10,7 @@
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     body {
       background-color: #ffffff;
@@ -19,9 +19,98 @@
       justify-content: center;
     }
 
-    /* --- 3ペインレイアウト --- */
-    #container {
+    /* --- アカウントゲート画面（未ログイン時に表示） --- */
+    #auth-gateway {
       display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      width: 100%;
+      max-width: 400px;
+      padding: 20px;
+      gap: 20px;
+    }
+    .auth-card {
+      width: 100%;
+      border: 1px solid #eff3f4;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .auth-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .form-group label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #536471;
+    }
+    .form-group input, .form-group select {
+      padding: 10px;
+      border: 1px solid #cfd9de;
+      border-radius: 6px;
+      font-size: 16px;
+      outline: none;
+    }
+    .form-group input:focus {
+      border-color: #1d9bf0;
+    }
+    .auth-btn {
+      background-color: #1d9bf0;
+      color: white;
+      border: none;
+      width: 100%;
+      padding: 12px;
+      border-radius: 9999px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .toggle-auth-mode {
+      text-align: center;
+      font-size: 14px;
+      color: #1d9bf0;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    /* アバター選択用の簡易グリッド */
+    .avatar-selector {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 5px;
+    }
+    .avatar-option {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      background-color: #f7f9f9;
+    }
+    .avatar-option.selected {
+      border-color: #1d9bf0;
+    }
+
+    /* --- メインアプリ画面（ログイン後に表示・初期値は非表示） --- */
+    #app-container {
+      display: none; /* JSで flex に切り替えます */
       width: 100%;
       max-width: 1250px;
       min-height: 100vh;
@@ -43,24 +132,25 @@
       cursor: pointer;
       border-radius: 9999px;
       transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 15px;
     }
     .nav-item:hover {
       background-color: #e7e7e8;
     }
-    .post-btn {
-      background-color: #1d9bf0;
-      color: white;
-      text-align: center;
+    .logout-btn {
+      margin-top: auto;
+      background: none;
       border: none;
-      padding: 15px;
-      border-radius: 9999px;
-      font-size: 17px;
+      color: #f4212e;
       font-weight: bold;
       cursor: pointer;
-      margin-top: 20px;
+      text-align: left;
+      padding: 12px;
     }
 
-    /* 中央：メインコンテンツ */
+    /* 中央メイン */
     #main-content {
       flex: 1;
       max-width: 600px;
@@ -78,7 +168,7 @@
       z-index: 10;
     }
 
-    /* 投稿フォーム */
+    /* 投稿エリア */
     .tweet-box {
       display: flex;
       padding: 15px;
@@ -89,7 +179,11 @@
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background-color: #ccc;
+      background-color: #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
     }
     .tweet-form {
       flex: 1;
@@ -125,127 +219,128 @@
       padding: 15px;
       border-bottom: 1px solid #eff3f4;
       gap: 12px;
-      cursor: pointer;
     }
     .post-body {
       flex: 1;
     }
     .post-header {
       display: flex;
-      align-items: baseline;
-      gap: 5px;
+      flex-direction: column;
       margin-bottom: 4px;
     }
     .display-name {
       font-weight: bold;
+      font-size: 15px;
     }
     .user-id {
-      color: #536471;
-      font-size: 14px;
+      color: #71767b;
+      font-size: 13px;
     }
     .post-content {
       font-size: 15px;
       line-height: 1.5;
       white-space: pre-wrap;
+      margin-top: 5px;
     }
-
-    /* 引用リポスト（ひもづけ）のスタイル */
-    .quoted-container {
-      margin-top: 10px;
-      border: 1px solid #cfd9de;
-      border-radius: 16px;
-      padding: 12px;
-    }
-
-    /* アクションバー（いいね・リプ） */
     .post-actions {
       display: flex;
       margin-top: 12px;
       justify-content: space-between;
-      max-width: 425px;
+      max-width: 300px;
       color: #536471;
       font-size: 13px;
     }
     .action-btn {
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .action-btn:hover {
-      color: #1d9bf0;
     }
 
     /* 右サイドバー */
     #right-sidebar {
       width: 350px;
       padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .sos-card {
-      background-color: #f7f9f9;
-      border-radius: 16px;
-      padding: 16px;
-      border: 1px solid #eff3f4;
-    }
-    .sos-btn {
-      background-color: #f4212e;
-      color: white;
-      border: none;
-      width: 100%;
-      padding: 10px;
-      border-radius: 9999px;
-      font-weight: bold;
-      margin-top: 10px;
-      cursor: pointer;
     }
 
-    /* --- レスポンシブ対応 --- */
+    /* レスポンシブ */
     @media (max-width: 1000px) {
       #right-sidebar { display: none; }
     }
     @media (max-width: 700px) {
       #left-sidebar { width: 80px; padding: 10px; }
-      .nav-text, .post-btn { display: none; }
+      .nav-text { display: none; }
     }
   </style>
 </head>
 <body>
-  <div id="container">
+
+  <div id="auth-gateway">
+    <div class="auth-card" id="login-card">
+      <div class="auth-title">TKNにログイン</div>
+      <div class="form-group">
+        <label for="login-email">メールアドレス（学校用など）</label>
+        <input type="email" id="login-email" placeholder="example@ed.jp">
+      </div>
+      <div class="form-group">
+        <label for="login-password">パスワード</label>
+        <input type="password" id="login-password">
+      </div>
+      <button class="auth-btn" id="btn-login">ログイン</button>
+      <div class="toggle-auth-mode" id="to-signup">新しいアカウントを作成する</div>
+    </div>
+
+    <div class="auth-card" id="signup-card" style="display: none;">
+      <div class="auth-title">アカウントを作成</div>
+      <div class="form-group">
+        <label for="signup-name">名前（表示名）</label>
+        <input type="text" id="signup-name" placeholder="根田 隆旬">
+      </div>
+      <div class="form-group">
+        <label for="signup-name-roman">名前のローマ字（ID自動生成用）</label>
+        <input type="text" id="signup-name-roman" placeholder="ryushun">
+      </div>
+      <div class="form-group">
+        <label>プロフィール画像（アバターを選択）</label>
+        <div class="avatar-selector">
+          <div class="avatar-option selected" data-emoji="🧪">🧪</div>
+          <div class="avatar-option" data-emoji="🐈">🐈</div>
+          <div class="avatar-option" data-emoji="🎮">🎮</div>
+          <div class="avatar-option" data-emoji="⚡">⚡</div>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top: 15px;">
+        <label for="signup-email">メールアドレス</label>
+        <input type="email" id="signup-email" placeholder="example@ed.jp">
+      </div>
+      <div class="form-group">
+        <label for="signup-password">パスワード</label>
+        <input type="password" id="signup-password">
+      </div>
+      <button class="auth-btn" id="btn-signup">登録して始める</button>
+      <div class="toggle-auth-mode" id="to-login">登録済みの方はこちら（ログイン）</div>
+    </div>
+  </div>
+
+  <div id="app-container">
     <nav id="left-sidebar">
       <div class="nav-item" style="font-size: 24px;">🏫</div>
       <div class="nav-item">🏠 <span class="nav-text">ホーム</span></div>
       <div class="nav-item">✉️ <span class="nav-text">メッセージ</span></div>
-      <div class="nav-item">👤 <span class="nav-text">プロフィール</span></div>
-      <button class="post-btn">投稿する</button>
+      <button class="logout-btn" id="btn-logout">🚪 ログアウト</button>
     </nav>
 
     <main id="main-content">
       <div class="header">ホーム</div>
-      
       <div class="tweet-box">
-        <div class="avatar" id="current-user-avatar"></div>
+        <div class="avatar" id="current-user-avatar">🧪</div>
         <div class="tweet-form">
           <textarea class="tweet-input" id="post-input" placeholder="学校で何あった？" rows="2"></textarea>
           <button class="tweet-submit-btn" id="submit-post">投稿する</button>
         </div>
       </div>
-
-      <div class="timeline" id="timeline">
-        </div>
+      <div class="timeline" id="timeline"></div>
     </main>
 
     <aside id="right-sidebar">
-      <div class="sos-card">
-        <h3>ログインでお困りですか？</h3>
-        <p style="font-size: 13px; color: #536471; margin-top: 5px;">
-          パスワードを忘れた、またはアカウントのメールアドレスが分からない場合はこちらから管理者にSOSを送れます。
-        </p>
-        <button class="sos-btn" id="sos-open-btn">管理者に連絡する</button>
-      </div>
-    </aside>
+      </aside>
   </div>
 
   <script type="module" src="app.js"></script>
