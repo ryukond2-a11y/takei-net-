@@ -78,28 +78,36 @@ async function compressAndConvertToBase64(file) {
   });
 }
 
+// 安全にDOMの表示非表示を切り替えるヘルパー
+function setDisplay(id, displayStyle) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = displayStyle;
+}
+
 // --- UI表示切り替え ---
 function showApp(user, docData) {
   currentUserData = docData;
-  document.getElementById("auth-gateway").style.display = "none";
-  document.getElementById("app-container").style.display = "flex";
+  setDisplay("auth-gateway", "none");
+  setDisplay("app-container", "flex");
   
   // アバター表示
   const avatarEl = document.getElementById("current-user-avatar");
-  if (docData.photoURL && docData.photoURL.startsWith("data:image")) {
-    avatarEl.innerText = "";
-    avatarEl.style.backgroundImage = `url(${docData.photoURL})`;
-  } else {
-    avatarEl.innerText = docData.photoURL || "🧪";
-    avatarEl.style.backgroundImage = "none";
+  if (avatarEl) {
+    if (docData.photoURL && docData.photoURL.startsWith("data:image")) {
+      avatarEl.innerText = "";
+      avatarEl.style.backgroundImage = `url(${docData.photoURL})`;
+    } else {
+      avatarEl.innerText = docData.photoURL || "🧪";
+      avatarEl.style.backgroundImage = "none";
+    }
   }
 
-  // 管理者権限
+  // 管理者権限チェック（君のアドレス: ryukond2@gmail.com）
   const normalizedEmail = (docData.email || "").toLowerCase().trim();
   if (docData.role === "admin" || normalizedEmail === "ryukond2@gmail.com") {
-    document.getElementById("nav-admin").style.display = "flex";
+    setDisplay("nav-admin", "flex");
   } else {
-    document.getElementById("nav-admin").style.display = "none";
+    setDisplay("nav-admin", "none");
   }
 
   loadTimeline();
@@ -107,8 +115,8 @@ function showApp(user, docData) {
 
 function showAuth() {
   currentUserData = null;
-  document.getElementById("auth-gateway").style.display = "flex";
-  document.getElementById("app-container").style.display = "none";
+  setDisplay("auth-gateway", "flex");
+  setDisplay("app-container", "none");
 }
 
 // --- ユーザー認証状態の監視 ---
@@ -117,7 +125,8 @@ onAuthStateChanged(auth, (user) => {
     const userRef = ref(db, `users/${user.uid}`);
     onValue(userRef, (snapshot) => {
       const data = snapshot.val();
-      if (data) {
+      // data が存在し、かつオブジェクト（文字列の "" ではない）場合のみ正常処理
+      if (data && typeof data === "object") {
         showApp(user, data);
       } else {
         const fallbackData = {
@@ -140,56 +149,65 @@ onAuthStateChanged(auth, (user) => {
 });
 
 // --- 新規登録 ---
-document.getElementById("btn-signup").addEventListener("click", async () => {
-  const name = document.getElementById("signup-name").value.trim();
-  const romanName = document.getElementById("signup-name-roman").value.trim();
-  const email = document.getElementById("signup-email").value.trim();
-  const password = document.getElementById("signup-password").value;
-  const avatarFile = document.getElementById("signup-avatar-file").files[0];
+const btnSignup = document.getElementById("btn-signup");
+if (btnSignup) {
+  btnSignup.addEventListener("click", async () => {
+    const name = document.getElementById("signup-name")?.value.trim();
+    const romanName = document.getElementById("signup-name-roman")?.value.trim();
+    const email = document.getElementById("signup-email")?.value.trim();
+    const password = document.getElementById("signup-password")?.value;
+    const avatarFile = document.getElementById("signup-avatar-file")?.files[0];
 
-  if (!name || !romanName || !email || !password) {
-    alert("すべての項目を入力してね！");
-    return;
-  }
-
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    const generatedId = romanName.toLowerCase().replace(/[^a-z0-9]/g, "") + Math.floor(1000 + Math.random() * 9000);
-
-    let finalPhotoUrl = "🧪"; 
-
-    if (avatarFile) {
-      finalPhotoUrl = await compressAndConvertToBase64(avatarFile);
+    if (!name || !romanName || !email || !password) {
+      alert("すべての項目を入力してね！");
+      return;
     }
 
-    const userData = {
-      uid: user.uid,
-      email: email,
-      displayName: name,
-      userLoginId: generatedId,
-      photoURL: finalPhotoUrl,
-      role: email.toLowerCase().trim() === "ryukond2@gmail.com" ? "admin" : "user",
-      createdAt: Date.now()
-    };
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const generatedId = romanName.toLowerCase().replace(/[^a-z0-9]/g, "") + Math.floor(1000 + Math.random() * 9000);
 
-    await set(ref(db, `users/${user.uid}`), userData);
-    alert(`登録完了！君のIDは @${generatedId} に決定したよ！`);
-  } catch (error) {
-    console.error("登録エラー:", error);
-    alert("登録に失敗しちゃった: " + error.message);
-  }
-});
+      let finalPhotoUrl = "🧪"; 
+
+      if (avatarFile) {
+        finalPhotoUrl = await compressAndConvertToBase64(avatarFile);
+      }
+
+      const userData = {
+        uid: user.uid,
+        email: email,
+        displayName: name,
+        userLoginId: generatedId,
+        photoURL: finalPhotoUrl,
+        role: email.toLowerCase().trim() === "ryukond2@gmail.com" ? "admin" : "user",
+        createdAt: Date.now()
+      };
+
+      await set(ref(db, `users/${user.uid}`), userData);
+      alert(`登録完了！君のIDは @${generatedId} に決定したよ！`);
+    } catch (error) {
+      console.error("登録エラー:", error);
+      alert("登録に失敗しちゃった: " + error.message);
+    }
+  });
+}
 
 // --- ログイン・ログアウト ---
-document.getElementById("btn-login").addEventListener("click", async () => {
-  const email = document.getElementById("login-email").value.trim();
-  const password = document.getElementById("login-password").value;
-  if (!email || !password) return alert("入力してね");
-  try { await signInWithEmailAndPassword(auth, email, password); } catch (e) { alert(e.message); }
-});
+const btnLogin = document.getElementById("btn-login");
+if (btnLogin) {
+  btnLogin.addEventListener("click", async () => {
+    const email = document.getElementById("login-email")?.value.trim();
+    const password = document.getElementById("login-password")?.value;
+    if (!email || !password) return alert("入力してね");
+    try { await signInWithEmailAndPassword(auth, email, password); } catch (e) { alert(e.message); }
+  });
+}
 
-document.getElementById("btn-logout").addEventListener("click", () => { signOut(auth); });
+const btnLogout = document.getElementById("btn-logout");
+if (btnLogout) {
+  btnLogout.addEventListener("click", () => { signOut(auth); });
+}
 
 // --- 新規投稿の作成 ---
 async function createPost(content, replyToId = null, quotedPostId = null, quotedData = null) {
@@ -217,7 +235,7 @@ async function createPost(content, replyToId = null, quotedPostId = null, quoted
   }
 }
 
-// --- 【超重要】innerHTMLを使わず、DOM要素を生成してタイムラインを安全に組み立てる関数 ---
+// --- タイムライン描画 ---
 function loadTimeline() {
   const postsRef = ref(db, "posts");
 
@@ -225,28 +243,37 @@ function loadTimeline() {
     if (currentViewMode === "admin") return; 
 
     const timelineEl = document.getElementById("timeline");
-    timelineEl.innerHTML = ""; // タイムラインを一旦クリア
-    const postsData = snapshot.val() || {};
+    if (!timelineEl) return;
+    timelineEl.innerHTML = ""; 
+    
+    const rawData = snapshot.val();
+    // posts の中身が空欄、もしくは文字列の "" だった場合の安全ガード
+    if (!rawData || typeof rawData !== "object") {
+      timelineEl.innerHTML = "<div style='text-align:center; padding: 20px; color:#71767b;'>投稿がまだありません。最初の投稿をしてみよう！</div>";
+      return;
+    }
 
-    const postsList = Object.keys(postsData).map(key => ({
+    const postsList = Object.keys(rawData).map(key => ({
       id: key,
-      ...postsData[key]
+      ...rawData[key]
     })).sort((a, b) => b.createdAt - a.createdAt);
 
     let filteredPosts = postsList;
     if (currentViewMode === "home") {
       filteredPosts = postsList.filter(p => !p.replyTo);
-      document.getElementById("page-title").innerText = "ホーム";
-      document.getElementById("back-to-home-btn").style.display = "none";
-      document.getElementById("global-tweet-box").style.display = "flex";
+      const titleEl = document.getElementById("page-title");
+      if (titleEl) titleEl.innerText = "ホーム";
+      setDisplay("back-to-home-btn", "none");
+      setDisplay("global-tweet-box", "flex");
     } else if (currentViewMode === "replies" && currentThreadPostId) {
       const parentPost = postsList.find(p => p.id === currentThreadPostId);
       const replies = postsList.filter(p => p.replyTo === currentThreadPostId).reverse(); 
       filteredPosts = parentPost ? [parentPost, ...replies] : replies;
       
-      document.getElementById("page-title").innerText = "会話";
-      document.getElementById("back-to-home-btn").style.display = "block";
-      document.getElementById("global-tweet-box").style.display = "none"; 
+      const titleEl = document.getElementById("page-title");
+      if (titleEl) titleEl.innerText = "会話";
+      setDisplay("back-to-home-btn", "block");
+      setDisplay("global-tweet-box", "none"); 
     }
 
     filteredPosts.forEach((post, index) => {
@@ -256,17 +283,16 @@ function loadTimeline() {
 
       const likesObj = post.likes || {};
       const likeCount = Object.keys(likesObj).length;
-      const hasLiked = likesObj[currentUserData.uid] === true;
+      const hasLiked = likesObj[currentUserData?.uid] === true;
       const likeColor = hasLiked ? "color: #f4212e;" : "";
 
-      // 各要素を手動で組み立てることで、ボタンが確実に動くようにします
       const container = document.createElement("div");
       container.className = "thread-line-container";
 
       const isParentInThread = currentViewMode === "replies" && index === 0 && filteredPosts.length > 1;
       const threadLineHTML = isParentInThread ? `<div class="thread-line"></div>` : "";
 
-      // アバターの表示方法決定
+      // アバター表示
       let avatarStyle = "";
       let avatarText = "🧪";
       if (post.senderIcon && post.senderIcon.startsWith("data:image")) {
@@ -276,7 +302,7 @@ function loadTimeline() {
         avatarText = post.senderIcon;
       }
 
-      // 引用部分のHTML
+      // 引用部分
       let quoteHTML = "";
       if (post.quotedPostId && post.quotedData) {
         quoteHTML = `
@@ -315,25 +341,24 @@ function loadTimeline() {
         </div>
       `;
 
-      // タイムラインに要素を直接追加
       timelineEl.appendChild(container);
 
-      // --- 【解決の鍵】DOMに追加直後、確実に1つずつイベントをバインドする ---
-      document.getElementById(`body-${postId}`).addEventListener("click", () => {
+      // イベントリスナーの安全登録
+      document.getElementById(`body-${postId}`)?.addEventListener("click", () => {
         viewThread(postId);
       });
 
-      document.getElementById(`like-btn-${postId}`).addEventListener("click", (e) => {
-        e.stopPropagation(); // 詳細画面への遷移を防ぐ
+      document.getElementById(`like-btn-${postId}`)?.addEventListener("click", (e) => {
+        e.stopPropagation(); 
         toggleLike(postId, likesObj);
       });
 
-      document.getElementById(`reply-btn-${postId}`).addEventListener("click", (e) => {
+      document.getElementById(`reply-btn-${postId}`)?.addEventListener("click", (e) => {
         e.stopPropagation(); 
         openReplyModal(postId, post);
       });
 
-      document.getElementById(`quote-btn-${postId}`).addEventListener("click", (e) => {
+      document.getElementById(`quote-btn-${postId}`)?.addEventListener("click", (e) => {
         e.stopPropagation(); 
         setQuoteTarget(post);
       });
@@ -350,37 +375,46 @@ async function toggleLike(postId, currentLikes) {
 
 function openReplyModal(postId, post) {
   currentReplyToId = postId;
-  document.getElementById("reply-target-post-content").innerText = `@${post.senderLoginId}: ${post.content}`;
-  document.getElementById("reply-modal").style.display = "flex";
+  const targetEl = document.getElementById("reply-target-post-content");
+  if (targetEl) targetEl.innerText = `@${post.senderLoginId}: ${post.content}`;
+  setDisplay("reply-modal", "flex");
 }
 
-document.getElementById("close-reply-modal").onclick = () => {
-  document.getElementById("reply-modal").style.display = "none";
-};
+const closeReplyBtn = document.getElementById("close-reply-modal");
+if (closeReplyBtn) {
+  closeReplyBtn.onclick = () => { setDisplay("reply-modal", "none"); };
+}
 
-document.getElementById("submit-reply").onclick = () => {
-  const replyInput = document.getElementById("reply-input");
-  if (replyInput.value.trim() !== "") {
-    createPost(replyInput.value, currentReplyToId);
-    replyInput.value = "";
-    document.getElementById("reply-modal").style.display = "none";
-  }
-};
+const submitReplyBtn = document.getElementById("submit-reply");
+if (submitReplyBtn) {
+  submitReplyBtn.onclick = () => {
+    const replyInput = document.getElementById("reply-input");
+    if (replyInput && replyInput.value.trim() !== "") {
+      createPost(replyInput.value, currentReplyToId);
+      replyInput.value = "";
+      setDisplay("reply-modal", "none");
+    }
+  };
+}
 
 function setQuoteTarget(post) {
   currentQuotedPost = post;
   const preview = document.getElementById("quote-preview");
   const previewContent = document.getElementById("quote-preview-content");
-  previewContent.innerText = `引用元: @${post.senderLoginId} "${post.content.substring(0, 30)}..."`;
-  preview.style.display = "block";
+  if (previewContent) {
+    previewContent.innerText = `引用元: @${post.senderLoginId} "${post.content.substring(0, 30)}..."`;
+  }
+  if (preview) preview.style.display = "block";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function closeQuotePreview() {
   currentQuotedPost = null;
-  document.getElementById("quote-preview").style.display = "none";
+  setDisplay("quote-preview", "none");
 }
-document.getElementById("close-quote-preview").onclick = closeQuotePreview;
+
+const closeQuoteBtn = document.getElementById("close-quote-preview");
+if (closeQuoteBtn) closeQuoteBtn.onclick = closeQuotePreview;
 
 window.viewThread = function(postId) {
   currentViewMode = "replies";
@@ -388,36 +422,47 @@ window.viewThread = function(postId) {
   loadTimeline();
 };
 
-document.getElementById("back-to-home-btn").onclick = () => {
-  currentViewMode = "home";
-  currentThreadPostId = null;
-  loadTimeline();
-};
+const backToHomeBtn = document.getElementById("back-to-home-btn");
+if (backToHomeBtn) {
+  backToHomeBtn.onclick = () => {
+    currentViewMode = "home";
+    currentThreadPostId = null;
+    loadTimeline();
+  };
+}
 
 // --- 管理者パネル ---
-document.getElementById("nav-admin").onclick = () => {
-  currentViewMode = "admin";
-  document.getElementById("main-content").style.display = "none";
-  document.getElementById("admin-panel").style.display = "flex";
-  loadAdminUsers();
-};
+const navAdmin = document.getElementById("nav-admin");
+if (navAdmin) {
+  navAdmin.onclick = () => {
+    currentViewMode = "admin";
+    setDisplay("main-content", "none");
+    setDisplay("admin-panel", "flex");
+    loadAdminUsers();
+  };
+}
 
-document.getElementById("nav-home").onclick = () => {
-  currentViewMode = "home";
-  document.getElementById("main-content").style.display = "block";
-  document.getElementById("admin-panel").style.display = "none";
-  loadTimeline();
-};
+const navHome = document.getElementById("nav-home");
+if (navHome) {
+  navHome.onclick = () => {
+    currentViewMode = "home";
+    setDisplay("main-content", "block");
+    setDisplay("admin-panel", "none");
+    loadTimeline();
+  };
+}
 
 function loadAdminUsers() {
   const usersRef = ref(db, "users");
   onValue(usersRef, (snapshot) => {
     const usersContainer = document.getElementById("admin-user-list");
+    if (!usersContainer) return;
     usersContainer.innerHTML = "";
-    const users = snapshot.val() || {};
+    const rawData = snapshot.val();
+    if (!rawData || typeof rawData !== "object") return;
 
-    Object.keys(users).forEach(uid => {
-      const user = users[uid];
+    Object.keys(rawData).forEach(uid => {
+      const user = rawData[uid];
       const row = document.createElement("div");
       row.className = "admin-user-row";
       
@@ -432,15 +477,17 @@ function loadAdminUsers() {
       `;
       usersContainer.appendChild(row);
 
-      // ボタンの動的生成とバインド（安全対策）
-      if (!isMe) {
-        const btn = document.createElement("button");
-        btn.className = "danger-btn";
-        btn.innerText = "強制BAN";
-        btn.onclick = () => deleteUserAccount(uid);
-        document.getElementById(`admin-action-${uid}`).appendChild(btn);
-      } else {
-        document.getElementById(`admin-action-${uid}`).innerText = "（あなた）";
+      const actionContainer = document.getElementById(`admin-action-${uid}`);
+      if (actionContainer) {
+        if (!isMe) {
+          const btn = document.createElement("button");
+          btn.className = "danger-btn";
+          btn.innerText = "強制BAN";
+          btn.onclick = () => deleteUserAccount(uid);
+          actionContainer.appendChild(btn);
+        } else {
+          actionContainer.innerText = "（あなた）";
+        }
       }
     });
   });
@@ -454,27 +501,38 @@ window.deleteUserAccount = async function(uid) {
 };
 
 // 投稿するボタン
-document.getElementById("submit-post").addEventListener("click", () => {
-  const input = document.getElementById("post-input");
-  if (input.value.trim() !== "") {
-    if (currentQuotedPost) {
-      createPost(input.value, null, currentQuotedPost.id, {
-        senderName: currentQuotedPost.senderName,
-        senderLoginId: currentQuotedPost.senderLoginId,
-        content: currentQuotedPost.content
-      });
-    } else {
-      createPost(input.value);
+const submitPostBtn = document.getElementById("submit-post");
+if (submitPostBtn) {
+  submitPostBtn.addEventListener("click", () => {
+    const input = document.getElementById("post-input");
+    if (input && input.value.trim() !== "") {
+      if (currentQuotedPost) {
+        createPost(input.value, null, currentQuotedPost.id, {
+          senderName: currentQuotedPost.senderName,
+          senderLoginId: currentQuotedPost.senderLoginId,
+          content: currentQuotedPost.content
+        });
+      } else {
+        createPost(input.value);
+      }
+      input.value = "";
     }
-    input.value = "";
-  }
-});
+  });
+}
 
-document.getElementById("to-signup").onclick = () => {
-  document.getElementById("login-card").style.display = "none";
-  document.getElementById("signup-card").style.display = "block";
-};
-document.getElementById("to-login").onclick = () => {
-  document.getElementById("signup-card").style.display = "none";
-  document.getElementById("login-card").style.display = "block";
-};
+// 登録・ログイン表示切替
+const toSignup = document.getElementById("to-signup");
+if (toSignup) {
+  toSignup.onclick = () => {
+    setDisplay("login-card", "none");
+    setDisplay("signup-card", "block");
+  };
+}
+
+const toLogin = document.getElementById("to-login");
+if (toLogin) {
+  toLogin.onclick = () => {
+    setDisplay("signup-card", "none");
+    setDisplay("login-card", "block");
+  };
+}
