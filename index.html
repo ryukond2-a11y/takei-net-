@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TKN - 学校向けSNS</title>
+  <style>
+    /* --- 基本スタイル --- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    body {
+      background-color: #ffffff;
+      color: #0f1419;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* --- 3ペインレイアウト --- */
+    #container {
+      display: flex;
+      width: 100%;
+      max-width: 1250px;
+      min-height: 100vh;
+    }
+
+    /* 左サイドバー */
+    #left-sidebar {
+      width: 275px;
+      padding: 20px;
+      border-right: 1px solid #eff3f4;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .nav-item {
+      font-size: 20px;
+      font-weight: bold;
+      padding: 12px;
+      cursor: pointer;
+      border-radius: 9999px;
+      transition: background 0.2s;
+    }
+    .nav-item:hover {
+      background-color: #e7e7e8;
+    }
+    .post-btn {
+      background-color: #1d9bf0;
+      color: white;
+      text-align: center;
+      border: none;
+      padding: 15px;
+      border-radius: 9999px;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    /* 中央：メインコンテンツ */
+    #main-content {
+      flex: 1;
+      max-width: 600px;
+      border-right: 1px solid #eff3f4;
+    }
+    .header {
+      position: sticky;
+      top: 0;
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      border-bottom: 1px solid #eff3f4;
+      z-index: 10;
+    }
+
+    /* 投稿フォーム */
+    .tweet-box {
+      display: flex;
+      padding: 15px;
+      border-bottom: 1px solid #eff3f4;
+      gap: 12px;
+    }
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background-color: #ccc;
+    }
+    .tweet-form {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tweet-input {
+      border: none;
+      outline: none;
+      font-size: 20px;
+      resize: none;
+      width: 100%;
+    }
+    .tweet-submit-btn {
+      align-self: flex-end;
+      background-color: #1d9bf0;
+      color: white;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 9999px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* タイムライン */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+    }
+    .post {
+      display: flex;
+      padding: 15px;
+      border-bottom: 1px solid #eff3f4;
+      gap: 12px;
+      cursor: pointer;
+    }
+    .post-body {
+      flex: 1;
+    }
+    .post-header {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      margin-bottom: 4px;
+    }
+    .display-name {
+      font-weight: bold;
+    }
+    .user-id {
+      color: #536471;
+      font-size: 14px;
+    }
+    .post-content {
+      font-size: 15px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    /* 引用リポスト（ひもづけ）のスタイル */
+    .quoted-container {
+      margin-top: 10px;
+      border: 1px solid #cfd9de;
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    /* アクションバー（いいね・リプ） */
+    .post-actions {
+      display: flex;
+      margin-top: 12px;
+      justify-content: space-between;
+      max-width: 425px;
+      color: #536471;
+      font-size: 13px;
+    }
+    .action-btn {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .action-btn:hover {
+      color: #1d9bf0;
+    }
+
+    /* 右サイドバー */
+    #right-sidebar {
+      width: 350px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .sos-card {
+      background-color: #f7f9f9;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid #eff3f4;
+    }
+    .sos-btn {
+      background-color: #f4212e;
+      color: white;
+      border: none;
+      width: 100%;
+      padding: 10px;
+      border-radius: 9999px;
+      font-weight: bold;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    /* --- レスポンシブ対応 --- */
+    @media (max-width: 1000px) {
+      #right-sidebar { display: none; }
+    }
+    @media (max-width: 700px) {
+      #left-sidebar { width: 80px; padding: 10px; }
+      .nav-text, .post-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <nav id="left-sidebar">
+      <div class="nav-item" style="font-size: 24px;">🏫</div>
+      <div class="nav-item">🏠 <span class="nav-text">ホーム</span></div>
+      <div class="nav-item">✉️ <span class="nav-text">メッセージ</span></div>
+      <div class="nav-item">👤 <span class="nav-text">プロフィール</span></div>
+      <button class="post-btn">投稿する</button>
+    </nav>
+
+    <main id="main-content">
+      <div class="header">ホーム</div>
+      
+      <div class="tweet-box">
+        <div class="avatar" id="current-user-avatar"></div>
+        <div class="tweet-form">
+          <textarea class="tweet-input" id="post-input" placeholder="学校で何あった？" rows="2"></textarea>
+          <button class="tweet-submit-btn" id="submit-post">投稿する</button>
+        </div>
+      </div>
+
+      <div class="timeline" id="timeline">
+        </div>
+    </main>
+
+    <aside id="right-sidebar">
+      <div class="sos-card">
+        <h3>ログインでお困りですか？</h3>
+        <p style="font-size: 13px; color: #536471; margin-top: 5px;">
+          パスワードを忘れた、またはアカウントのメールアドレスが分からない場合はこちらから管理者にSOSを送れます。
+        </p>
+        <button class="sos-btn" id="sos-open-btn">管理者に連絡する</button>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
