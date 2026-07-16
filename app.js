@@ -30,7 +30,7 @@ let currentViewMode = "home"; // "home", "replies", "dm"
 let currentThreadPostId = null; 
 let currentActiveDmRoomId = null; 
 
-// --- ミリ秒を「MM/DD HH:MM」の読みやすい形式に変換する関数 ---
+// --- ミリ秒を「MM/DD HH:MM」に変換する関数 ---
 function formatDate(timestamp) {
   if (!timestamp) return "";
   const date = new Date(timestamp);
@@ -41,7 +41,7 @@ function formatDate(timestamp) {
   return `${month}/${day} ${hours}:${minutes}`;
 }
 
-// --- 画像圧縮 ＆ Base64テキスト変換ロジック ---
+// --- 画像圧縮 ＆ Base64テキスト変換 ---
 async function compressAndConvertToBase64(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -79,19 +79,23 @@ async function compressAndConvertToBase64(file) {
   });
 }
 
-// 安全にDOMの表示非表示を切り替えるヘルパー
+// 【超重要】要素が存在するときだけ style.display を変更する安全関数
 function setDisplay(id, displayStyle) {
   const el = document.getElementById(id);
-  if (el) el.style.display = displayStyle;
+  if (el) {
+    el.style.display = displayStyle;
+  }
 }
 
 // --- UI表示切り替え ---
 function showApp(user, docData) {
   currentUserData = docData;
+  
+  // 安全に画面表示を切り替え
   setDisplay("auth-gateway", "none");
   setDisplay("app-container", "flex");
   
-  // アバター表示
+  // アバター表示（要素がある場合のみ実行）
   const avatarEl = document.getElementById("current-user-avatar");
   if (avatarEl) {
     if (docData.photoURL && docData.photoURL.startsWith("data:image")) {
@@ -103,7 +107,7 @@ function showApp(user, docData) {
     }
   }
 
-  // 管理者権限チェック（admin.html へのリンクを制御）
+  // 管理者権限チェック（要素がある場合のみ）
   const normalizedEmail = (docData.email || "").toLowerCase().trim();
   if (docData.role === "admin" || normalizedEmail === "ryukond2@gmail.com") {
     setDisplay("nav-admin", "flex");
@@ -402,7 +406,7 @@ function loadTimeline() {
         });
       }
 
-      // イベントリスナー
+      // 各種イベント
       document.getElementById(`body-${postId}`)?.addEventListener("click", () => {
         viewThread(postId);
       });
@@ -439,6 +443,7 @@ function openReplyModal(postId, post) {
   setDisplay("reply-modal", "flex");
 }
 
+// 【安全対策】要素の存在チェックを挟んでからイベント登録（onclickの代入エラーを防ぐ）
 const closeReplyBtn = document.getElementById("close-reply-modal");
 if (closeReplyBtn) {
   closeReplyBtn.onclick = () => { setDisplay("reply-modal", "none"); };
@@ -472,8 +477,11 @@ function closeQuotePreview() {
   setDisplay("quote-preview", "none");
 }
 
+// 【安全対策】
 const closeQuoteBtn = document.getElementById("close-quote-preview");
-if (closeQuoteBtn) closeQuoteBtn.onclick = closeQuotePreview;
+if (closeQuoteBtn) {
+  closeQuoteBtn.onclick = closeQuotePreview;
+}
 
 window.viewThread = function(postId) {
   currentViewMode = "replies";
@@ -491,7 +499,6 @@ if (backToHomeBtn) {
 }
 
 // --- ダイレクトメッセージ (DM) システム ---
-
 function switchToDmView() {
   currentViewMode = "dm";
   setDisplay("main-content", "none");
@@ -538,3 +545,208 @@ if (btnStartDmSearch) {
       }
     }, { onlyOnce: true });
   });
+}
+
+// チャットルーム開始処理
+function startDmWithUser(targetUser) {
+  if (targetUser.uid === currentUserData.uid) return alert("自分自身とはDMできません");
+
+  const roomIds = [currentUserData.uid, targetUser.uid].sort();
+  const roomId = `${roomIds[0]}_${roomIds[1]}`;
+
+  currentActiveDmRoomId = roomId;
+  switchToDmView();
+  
+  const threadRef = ref(db, `dm_threads/${roomId}`);
+  set(threadRef, {
+    roomId: roomId,
+    user1: roomIds[0],
+    user2: roomIds[1],
+    lastActive: Date.now()
+  });
+
+  loadDmChat(roomId, targetUser);
+}
+
+// DMスレッド一覧
+function loadDmThreads() {
+  const threadsRef = ref(db, "dm_threads");
+  onValue(threadsRef, (snapshot) => {
+    const threadListEl = document.getElementById("dm-thread-list");
+    if (!threadListEl) return;
+    threadListEl.innerHTML = "";
+
+    const threads = snapshot.val() || {};
+    const myThreads = Object.values(threads).filter(t => t.user1 === currentUserData.uid || t.user2 === currentUserData.uid);
+
+    if (myThreads.length === 0) {
+      threadListEl.innerHTML = "<div style='color:#71767b; font-size: 13px; text-align:center; padding:15px;'>スレッドはありません</div>";
+      return;
+    }
+
+    myThreads.forEach(thread => {
+      const partnerUid = thread.user1 === currentUserData.uid ? thread.user2 : thread.user1;
+      
+      const userRef = ref(db, `users/${partnerUid}`);
+      onValue(userRef, (userSnap) => {
+        const partnerData = userSnap.val();
+        if (!partnerData) return;
+
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:center; gap:10px; padding:10px; cursor:pointer; border-radius:8px; border-bottom:1px solid #2f3336;";
+        if (currentActiveDmRoomId === thread.roomId) {
+          row.style.background = "#2f3336";
+        }
+
+        let partnerAvatar = "🧪";
+        let avatarStyle = "";
+        if (partnerData.photoURL && partnerData.photoURL.startsWith("data:image")) {
+          avatarStyle = `background-image: url(${partnerData.photoURL}); background-size: cover; background-position: center;`;
+          partnerAvatar = "";
+        } else if (partnerData.photoURL) {
+          partnerAvatar = partnerData.photoURL;
+        }
+
+        row.innerHTML = `
+          <div style="width:40px; height:40px; border-radius:50%; background-color:#15181c; display:flex; align-items:center; justify-content:center; font-size:18px; ${avatarStyle}">${partnerAvatar}</div>
+          <div>
+            <div style="font-weight:bold; font-size:14px; color:white;">${partnerData.displayName}</div>
+            <div style="font-size:12px; color:#71767b;">@${partnerData.userLoginId}</div>
+          </div>
+        `;
+
+        row.onclick = () => {
+          currentActiveDmRoomId = thread.roomId;
+          loadDmThreads(); 
+          loadDmChat(thread.roomId, partnerData);
+        };
+
+        threadListEl.appendChild(row);
+      }, { onlyOnce: true });
+    });
+  });
+}
+
+// チャットルーム表示
+function loadDmChat(roomId, partnerData) {
+  const headerEl = document.getElementById("dm-chat-header");
+  if (headerEl) headerEl.innerText = `${partnerData.displayName} (@${partnerData.userLoginId}) へのメッセージ`;
+
+  setDisplay("dm-input-area", "flex");
+
+  const messagesRef = ref(db, `dm_messages/${roomId}`);
+  onValue(messagesRef, (snapshot) => {
+    const messagesEl = document.getElementById("dm-messages");
+    if (!messagesEl) return;
+    messagesEl.innerHTML = "";
+
+    const data = snapshot.val() || {};
+    const sortedMessages = Object.values(data).sort((a, b) => a.createdAt - b.createdAt);
+
+    sortedMessages.forEach(msg => {
+      const isMe = msg.senderId === currentUserData.uid;
+      const bubble = document.createElement("div");
+      bubble.style.cssText = `max-width: 60%; padding: 10px 15px; border-radius: 18px; line-height: 1.4; word-break: break-word; font-size: 14px; margin-bottom: 5px;`;
+      
+      if (isMe) {
+        bubble.style.background = "#1d9bf0";
+        bubble.style.color = "white";
+        bubble.style.alignSelf = "flex-end";
+        bubble.style.borderRadius = "18px 18px 0 18px";
+      } else {
+        bubble.style.background = "#2f3336";
+        bubble.style.color = "white";
+        bubble.style.alignSelf = "flex-start";
+        bubble.style.borderRadius = "18px 18px 18px 0";
+      }
+
+      bubble.innerText = msg.content;
+
+      const timeSpan = document.createElement("span");
+      timeSpan.style.cssText = "font-size: 10px; color:#71767b; margin-top: 2px;";
+      timeSpan.style.alignSelf = isMe ? "flex-end" : "flex-start";
+      timeSpan.innerText = formatDate(msg.createdAt);
+
+      messagesEl.appendChild(bubble);
+      messagesEl.appendChild(timeSpan);
+    });
+
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+
+  const sendBtn = document.getElementById("btn-send-dm");
+  if (sendBtn) {
+    sendBtn.onclick = () => {
+      sendDmMessage(roomId);
+    };
+  }
+
+  const inputEl = document.getElementById("dm-message-input");
+  if (inputEl) {
+    inputEl.onkeydown = (e) => {
+      if (e.key === "Enter") {
+        sendDmMessage(roomId);
+      }
+    };
+  }
+}
+
+// メッセージ書き込み
+async function sendDmMessage(roomId) {
+  const inputEl = document.getElementById("dm-message-input");
+  if (!inputEl || inputEl.value.trim() === "") return;
+
+  const content = inputEl.value.trim();
+  inputEl.value = "";
+
+  const messagesRef = ref(db, `dm_messages/${roomId}`);
+  const newMsgRef = push(messagesRef);
+  const now = Date.now();
+
+  await set(newMsgRef, {
+    senderId: currentUserData.uid,
+    content: content,
+    createdAt: now
+  });
+
+  await update(ref(db, `dm_threads/${roomId}`), {
+    lastActive: now
+  });
+}
+
+// 投稿するボタン
+const submitPostBtn = document.getElementById("submit-post");
+if (submitPostBtn) {
+  submitPostBtn.addEventListener("click", () => {
+    const input = document.getElementById("post-input");
+    if (input && input.value.trim() !== "") {
+      if (currentQuotedPost) {
+        createPost(input.value, null, currentQuotedPost.id, {
+          senderName: currentQuotedPost.senderName,
+          senderLoginId: currentQuotedPost.senderLoginId,
+          content: currentQuotedPost.content
+        });
+      } else {
+        createPost(input.value);
+      }
+      input.value = "";
+    }
+  });
+}
+
+// 登録・ログイン表示切替
+const toSignup = document.getElementById("to-signup");
+if (toSignup) {
+  toSignup.onclick = () => {
+    setDisplay("login-card", "none");
+    setDisplay("signup-card", "block");
+  };
+}
+
+const toLogin = document.getElementById("to-login");
+if (toLogin) {
+  toLogin.onclick = () => {
+    setDisplay("signup-card", "none");
+    setDisplay("login-card", "block");
+  };
+}
