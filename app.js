@@ -116,7 +116,7 @@ function showApp(user, docData) {
     }
   }
 
-  // 管理者権限チェック（君のアドレス: ryukond2@gmail.com）
+  // 管理者権限チェック
   const normalizedEmail = (docData.email || "").toLowerCase().trim();
   if (docData.role === "admin" || normalizedEmail === "ryukond2@gmail.com") {
     setDisplay("nav-admin", "flex");
@@ -402,13 +402,19 @@ function openDmChat(partnerUid, partnerData) {
   const threadId = [currentUserData.uid, partnerUid].sort().join("_");
   const messagesRef = ref(db, `dms/${threadId}`);
 
-  // 以前のリスナーがあれば解除
+  const msgContainer = document.getElementById("dm-messages");
+  if (msgContainer) {
+    // メッセージが上下に綺麗に並び、かつ align-self が正しく効くように Flexbox の縦並びを強制設定
+    msgContainer.style.display = "flex";
+    msgContainer.style.flexDirection = "column";
+    msgContainer.style.gap = "10px";
+  }
+  
+  // 以前のリスナーの解除
   if (dmMessagesListener) {
-    // onValueは自動上書きされますが、安全のため一旦再ロード
+    // FirebaseのonValueは新しく購読した際に自動的にバインドされます
   }
 
-  const msgContainer = document.getElementById("dm-messages");
-  
   dmMessagesListener = onValue(messagesRef, (snapshot) => {
     if (!msgContainer) return;
     msgContainer.innerHTML = "";
@@ -423,8 +429,17 @@ function openDmChat(partnerUid, partnerData) {
     msgs.forEach((msg) => {
       const bubble = document.createElement("div");
       const isMe = msg.senderId === currentUserData.uid;
+      
       bubble.className = `dm-bubble ${isMe ? 'sent' : 'received'}`;
       bubble.innerText = msg.text;
+      
+      // ★送信元が自分の場合は右寄せ、相手の場合は左寄せにJSで直接位置を指定
+      if (isMe) {
+        bubble.style.alignSelf = "flex-end";
+      } else {
+        bubble.style.alignSelf = "flex-start";
+      }
+      
       msgContainer.appendChild(bubble);
     });
 
@@ -497,6 +512,7 @@ async function sendDmMessage() {
 
   await set(newMsgRef, {
     senderId: currentUserData.uid,
+    receiverId: currentActiveDmPartnerUid, // 送信相手も明記
     text: text,
     timestamp: Date.now()
   });
@@ -535,7 +551,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 2. イベント登録（安全に登録）
+  // 2. イベント登録
 
   // 新規登録
   safeAddListener("btn-signup", "click", async () => {
@@ -663,7 +679,6 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- プロフィール編集関連のイベント ---
-  // アバターアイコンをクリックしたらプロフィール編集モーダルを開く
   safeAddListener("current-user-avatar", "click", () => {
     if (!currentUserData) return;
     const nameInput = document.getElementById("edit-display-name");
