@@ -3,346 +3,323 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TKN - 学校向けSNS</title>
+  <title>takei.net plus</title>
   <style>
-    /* --- 基本スタイル --- */
-    * {
-      box-sizing: border-box;
+    /* 既存のスタイルシートをここに記述するか、外部CSSを読み込んでね */
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    body {
-      background-color: #ffffff;
-      color: #0f1419;
-      display: flex;
-      justify-content: center;
-    }
-
-    /* --- アカウントゲート画面（未ログイン時に表示） --- */
-    #auth-gateway {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      width: 100%;
-      max-width: 400px;
-      padding: 20px;
-      gap: 20px;
-    }
-    .auth-card {
-      width: 100%;
-      border: 1px solid #eff3f4;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    .auth-title {
-      font-size: 24px;
-      font-weight: bold;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    .form-group {
-      margin-bottom: 15px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .form-group label {
-      font-size: 13px;
-      font-weight: bold;
-      color: #536471;
-    }
-    .form-group input, .form-group select {
-      padding: 10px;
-      border: 1px solid #cfd9de;
-      border-radius: 6px;
-      font-size: 16px;
-      outline: none;
-    }
-    .form-group input:focus {
-      border-color: #1d9bf0;
-    }
-    .auth-btn {
-      background-color: #1d9bf0;
-      color: white;
-      border: none;
-      width: 100%;
-      padding: 12px;
-      border-radius: 9999px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    .toggle-auth-mode {
-      text-align: center;
-      font-size: 14px;
-      color: #1d9bf0;
-      cursor: pointer;
-      margin-top: 15px;
-    }
-
-    /* アバター選択用の簡易グリッド */
-    .avatar-selector {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-top: 5px;
-    }
-    .avatar-option {
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 3px solid transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      background-color: #f7f9f9;
-    }
-    .avatar-option.selected {
-      border-color: #1d9bf0;
-    }
-
-    /* --- メインアプリ画面（ログイン後に表示・初期値は非表示） --- */
     #app-container {
-      display: none; /* JSで flex に切り替えます */
-      width: 100%;
-      max-width: 1250px;
-      min-height: 100vh;
+      display: flex;
+      max-width: 1200px;
+      margin: 0 auto;
+      height: 100vh;
     }
-
-    /* 左サイドバー */
-    #left-sidebar {
+    .sidebar {
       width: 275px;
-      padding: 20px;
-      border-right: 1px solid #eff3f4;
+      border-right: 1px solid #2f3336;
+      padding: 20px 12px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      justify-content: space-between;
     }
     .nav-item {
-      font-size: 20px;
-      font-weight: bold;
-      padding: 12px;
-      cursor: pointer;
-      border-radius: 9999px;
-      transition: background 0.2s;
       display: flex;
       align-items: center;
       gap: 15px;
+      font-size: 20px;
+      padding: 12px;
+      border-radius: 9999px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: background 0.2s;
     }
     .nav-item:hover {
-      background-color: #e7e7e8;
+      background: #181818;
     }
-    .logout-btn {
-      margin-top: auto;
-      background: none;
-      border: none;
-      color: #f4212e;
-      font-weight: bold;
-      cursor: pointer;
-      text-align: left;
-      padding: 12px;
-    }
-
-    /* 中央メイン */
-    #main-content {
+    .main-section {
       flex: 1;
-      max-width: 600px;
-      border-right: 1px solid #eff3f4;
+      border-right: 1px solid #2f3336;
+      overflow-y: auto;
     }
-    .header {
+    .header-bar {
       position: sticky;
       top: 0;
-      background-color: rgba(255, 255, 255, 0.85);
+      background: rgba(0, 0, 0, 0.85);
       backdrop-filter: blur(12px);
       padding: 15px;
       font-size: 20px;
       font-weight: bold;
-      border-bottom: 1px solid #eff3f4;
+      border-bottom: 1px solid #2f3336;
+      display: flex;
+      align-items: center;
+      gap: 15px;
       z-index: 10;
     }
-
-    /* 投稿エリア */
     .tweet-box {
       display: flex;
-      padding: 15px;
-      border-bottom: 1px solid #eff3f4;
       gap: 12px;
+      padding: 15px;
+      border-bottom: 1px solid #2f3336;
     }
     .avatar {
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      background-color: #eee;
+      background-color: #2f3336;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
-    }
-    .tweet-form {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .tweet-input {
-      border: none;
-      outline: none;
       font-size: 20px;
-      resize: none;
-      width: 100%;
+      background-size: cover;
+      background-position: center;
+      flex-shrink: 0;
     }
-    .tweet-submit-btn {
-      align-self: flex-end;
-      background-color: #1d9bf0;
+    .tweet-input-area {
+      flex: 1;
+    }
+    .tweet-textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 18px;
+      resize: none;
+      outline: none;
+    }
+    .tweet-btn {
+      background: #1d9bf0;
       color: white;
       border: none;
-      padding: 9px 16px;
+      padding: 8px 16px;
       border-radius: 9999px;
       font-weight: bold;
       cursor: pointer;
+      float: right;
     }
-
-    /* タイムライン */
-    .timeline {
-      display: flex;
-      flex-direction: column;
+    .thread-line-container {
+      position: relative;
+    }
+    .thread-line {
+      position: absolute;
+      left: 35px;
+      top: 55px;
+      bottom: 0;
+      width: 2px;
+      background-color: #2f3336;
+      z-index: 1;
     }
     .post {
       display: flex;
-      padding: 15px;
-      border-bottom: 1px solid #eff3f4;
       gap: 12px;
+      padding: 15px;
+      border-bottom: 1px solid #2f3336;
+      position: relative;
+      z-index: 2;
     }
     .post-body {
       flex: 1;
     }
     .post-header {
       display: flex;
-      flex-direction: column;
+      gap: 8px;
+      color: #71767b;
       margin-bottom: 4px;
     }
     .display-name {
+      color: white;
       font-weight: bold;
-      font-size: 15px;
-    }
-    .user-id {
-      color: #71767b;
-      font-size: 13px;
     }
     .post-content {
       font-size: 15px;
       line-height: 1.5;
       white-space: pre-wrap;
-      margin-top: 5px;
     }
     .post-actions {
       display: flex;
-      margin-top: 12px;
       justify-content: space-between;
-      max-width: 300px;
-      color: #536471;
-      font-size: 13px;
+      max-width: 425px;
+      margin-top: 12px;
+      color: #71767b;
     }
     .action-btn {
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      transition: color 0.2s;
     }
-
-    /* 右サイドバー */
-    #right-sidebar {
+    .action-btn:hover {
+      color: #1d9bf0;
+    }
+    .quoted-container {
+      border: 1px solid #2f3336;
+      border-radius: 16px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+    /* モーダル背景 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(91, 112, 131, 0.4);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding-top: 50px;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: black;
+      width: 600px;
+      border-radius: 16px;
+      border: 1px solid #2f3336;
+      padding: 15px;
+      color: white;
+    }
+    /* ゲートウェイ（ログイン/登録）用 */
+    .gateway-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #000;
+    }
+    .card {
+      background: #15181c;
+      padding: 30px;
+      border-radius: 16px;
+      border: 1px solid #2f3336;
       width: 350px;
-      padding: 20px;
     }
-
-    /* レスポンシブ */
-    @media (max-width: 1000px) {
-      #right-sidebar { display: none; }
+    .card input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      border: 1px solid #2f3336;
+      background: #000;
+      color: #fff;
+      box-sizing: border-box;
     }
-    @media (max-width: 700px) {
-      #left-sidebar { width: 80px; padding: 10px; }
-      .nav-text { display: none; }
+    .card button {
+      width: 100%;
+      padding: 10px;
+      background: #1d9bf0;
+      border: none;
+      color: white;
+      font-weight: bold;
+      border-radius: 9999px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-  <div id="auth-gateway">
-    <div class="auth-card" id="login-card">
-      <div class="auth-title">TKNにログイン</div>
-      <div class="form-group">
-        <label for="login-email">メールアドレス（学校用など）</label>
-        <input type="email" id="login-email" placeholder="example@ed.jp">
-      </div>
-      <div class="form-group">
-        <label for="login-password">パスワード</label>
-        <input type="password" id="login-password">
-      </div>
-      <button class="auth-btn" id="btn-login">ログイン</button>
-      <div class="toggle-auth-mode" id="to-signup">新しいアカウントを作成する</div>
+  <div id="auth-gateway" class="gateway-container">
+    <div class="card" id="login-card">
+      <h2 style="text-align: center; margin-bottom: 20px;">takei.net plus にログイン</h2>
+      <input type="email" id="login-email" placeholder="メールアドレス">
+      <input type="password" id="login-password" placeholder="パスワード">
+      <button id="btn-login">ログイン</button>
+      <p style="text-align: center; margin-top: 15px; font-size: 13px; color: #71767b;">
+        アカウントがない？ <span id="to-signup" style="color: #1d9bf0; cursor: pointer;">登録する</span>
+      </p>
     </div>
 
-    <div class="auth-card" id="signup-card" style="display: none;">
-      <div class="auth-title">アカウントを作成</div>
-      <div class="form-group">
-        <label for="signup-name">名前（表示名）</label>
-        <input type="text" id="signup-name" placeholder="根田 隆旬">
-      </div>
-      <div class="form-group">
-        <label for="signup-name-roman">名前のローマ字（ID自動生成用）</label>
-        <input type="text" id="signup-name-roman" placeholder="ryushun">
-      </div>
-      <div class="form-group">
-        <label>プロフィール画像（アバターを選択）</label>
-        <div class="avatar-selector">
-          <div class="avatar-option selected" data-emoji="🧪">🧪</div>
-          <div class="avatar-option" data-emoji="🐈">🐈</div>
-          <div class="avatar-option" data-emoji="🎮">🎮</div>
-          <div class="avatar-option" data-emoji="⚡">⚡</div>
-        </div>
-      </div>
-      <div class="form-group" style="margin-top: 15px;">
-        <label for="signup-email">メールアドレス</label>
-        <input type="email" id="signup-email" placeholder="example@ed.jp">
-      </div>
-      <div class="form-group">
-        <label for="signup-password">パスワード</label>
-        <input type="password" id="signup-password">
-      </div>
-      <button class="auth-btn" id="btn-signup">登録して始める</button>
-      <div class="toggle-auth-mode" id="to-login">登録済みの方はこちら（ログイン）</div>
+    <div class="card" id="signup-card" style="display: none;">
+      <h2 style="text-align: center; margin-bottom: 20px;">アカウントを作成</h2>
+      <input type="text" id="signup-name" placeholder="お名前 (例: たけい)">
+      <input type="text" id="signup-name-roman" placeholder="ID用の英語名 (例: takei)">
+      <input type="email" id="signup-email" placeholder="メールアドレス">
+      <input type="password" id="signup-password" placeholder="パスワード">
+      <label style="display:block; margin-bottom: 8px; font-size: 13px; color:#71767b;">アバター画像を設定（任意）:</label>
+      <input type="file" id="signup-avatar-file" accept="image/*" style="border:none; background:transparent; padding:0;">
+      <button id="btn-signup">アカウント登録</button>
+      <p style="text-align: center; margin-top: 15px; font-size: 13px; color: #71767b;">
+        すでにアカウントを持っている？ <span id="to-login" style="color: #1d9bf0; cursor: pointer;">ログイン</span>
+      </p>
     </div>
   </div>
 
-  <div id="app-container">
-    <nav id="left-sidebar">
-      <div class="nav-item" style="font-size: 24px;">🏫</div>
-      <div class="nav-item">🏠 <span class="nav-text">ホーム</span></div>
-      <div class="nav-item">✉️ <span class="nav-text">メッセージ</span></div>
-      <button class="logout-btn" id="btn-logout">🚪 ログアウト</button>
-    </nav>
+  <div id="app-container" style="display: none;">
+    <div class="sidebar">
+      <div>
+        <div style="font-size: 30px; margin-bottom: 20px; padding-left: 12px;">🧪</div>
+        <div id="nav-home" class="nav-item">🏠 ホーム</div>
+        <div id="nav-dm" class="nav-item">✉️ ダイレクトメッセージ (DM)</div>
+        <a href="admin.html" id="nav-admin" class="nav-item" style="display: none; text-decoration: none; color: inherit;">⚙️ 管理者専用ページへ</a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 12px;">
+        <div id="current-user-avatar" class="avatar">🧪</div>
+        <button id="btn-logout" style="background:transparent; border:1px solid #2f3336; color:white; padding:6px 12px; border-radius:9999px; cursor:pointer;">ログアウト</button>
+      </div>
+    </div>
 
-    <main id="main-content">
-      <div class="header">ホーム</div>
-      <div class="tweet-box">
-        <div class="avatar" id="current-user-avatar">🧪</div>
-        <div class="tweet-form">
-          <textarea class="tweet-input" id="post-input" placeholder="学校で何あった？" rows="2"></textarea>
-          <button class="tweet-submit-btn" id="submit-post">投稿する</button>
+    <div class="main-section" id="main-content">
+      <div class="header-bar">
+        <button id="back-to-home-btn" style="display: none; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">←</button>
+        <span id="page-title">ホーム</span>
+      </div>
+
+      <div class="tweet-box" id="global-tweet-box">
+        <div class="tweet-input-area">
+          <div id="quote-preview" style="display: none; border: 1px dashed #1d9bf0; padding: 8px; border-radius: 8px; margin-bottom: 8px; position: relative;">
+            <span id="quote-preview-content" style="font-size: 13px; color: #71767b;"></span>
+            <button id="close-quote-preview" style="position: absolute; right: 5px; top: 5px; background: none; border: none; color: #71767b; cursor: pointer;">✕</button>
+          </div>
+          <textarea id="post-input" class="tweet-textarea" placeholder="いまどうしてる？" rows="3"></textarea>
+          <div style="margin-top: 10px; overflow: hidden;">
+            <button id="submit-post" class="tweet-btn">投稿する</button>
+          </div>
         </div>
       </div>
-      <div class="timeline" id="timeline"></div>
-    </main>
 
-    <aside id="right-sidebar">
-      </aside>
+      <div id="timeline"></div>
+    </div>
+
+    <div id="dm-content" style="display: none; flex-direction: row; width: 100%; height: 100vh; flex: 1;">
+      <div style="width: 300px; border-right: 1px solid #2f3336; padding: 15px; display: flex; flex-direction: column;">
+        <h3 style="margin-top: 0;">DMスレッド</h3>
+        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+          <input type="text" id="dm-search-id" placeholder="ID (@除く)を入力" style="flex: 1; padding: 8px; border-radius: 9999px; background: #15181c; border: 1px solid #2f3336; color: white; font-size: 13px;">
+          <button id="btn-start-dm-search" style="background: #1d9bf0; color: white; border: none; padding: 8px 12px; border-radius: 9999px; cursor: pointer; font-size: 13px; font-weight: bold;">開始</button>
+        </div>
+        <div id="dm-thread-list" style="overflow-y: auto; flex: 1;"></div>
+      </div>
+      
+      <div style="flex: 1; display: flex; flex-direction: column; height: 100%;">
+        <div id="dm-chat-header" style="padding: 15px; border-bottom: 1px solid #2f3336; font-weight: bold; font-size: 18px;">
+          相手を選択するかIDで検索してね
+        </div>
+        <div id="dm-messages" style="flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
+        <div id="dm-input-area" style="padding: 15px; border-top: 1px solid #2f3336; display: none; gap: 10px;">
+          <input type="text" id="dm-message-input" placeholder="新しいメッセージを入力..." style="flex: 1; padding: 12px; border-radius: 9999px; background: #15181c; border: 1px solid #2f3336; color: white;">
+          <button id="btn-send-dm" style="background: #1d9bf0; color: white; border: none; padding: 12px 24px; border-radius: 9999px; cursor: pointer; font-weight: bold;">送信</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script type="module" src="app.js"></script>
-</body>
-</html>
+  <div id="reply-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+        <span style="font-weight: bold;">返信する</span>
+        <button id="close-reply-modal" style="background: none; border: none; color: #71767b; font-size: 16px; cursor: pointer;">✕</button>
+      </div>
+      <div id="reply-target-post-content" style="color: #71767b; margin-bottom: 15px; font-size: 14px; padding-left: 10px; border-left: 2px solid #2f3336;"></div>
+      <textarea id="reply-input" style="width: 100%; background: transparent; border: none; color: white; font-size: 16px; resize: none; outline: none; margin-bottom: 15px;" placeholder="返信をツイート..." rows="4"></textarea>
+      <button id="submit-reply" class="tweet-btn">返信する</button>
+    </div>
+  </div>
+
+  <div id="profile-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 10000;">
+    <div style="background: #15181c; border: 1px solid #2f3336; width:
