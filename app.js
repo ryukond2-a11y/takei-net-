@@ -29,7 +29,7 @@ let currentReplyToId = null;
 let currentViewMode = "home"; 
 let currentThreadPostId = null; 
 
-// --- 【追加】ミリ秒を「MM/DD HH:MM」の読みやすい形式に変換する関数 ---
+// --- ミリ秒を「MM/DD HH:MM」の読みやすい形式に変換する関数 ---
 function formatDate(timestamp) {
   if (!timestamp) return "";
   const date = new Date(timestamp);
@@ -94,7 +94,7 @@ function showApp(user, docData) {
     avatarEl.style.backgroundImage = "none";
   }
 
-  // 管理者権限（君のメインアドレスに設定したよ！）
+  // 管理者権限
   const normalizedEmail = (docData.email || "").toLowerCase().trim();
   if (docData.role === "admin" || normalizedEmail === "ryukond2@gmail.com") {
     document.getElementById("nav-admin").style.display = "flex";
@@ -120,7 +120,6 @@ onAuthStateChanged(auth, (user) => {
       if (data) {
         showApp(user, data);
       } else {
-        // もしAuthにはいるけどDBにユーザーデータがない場合
         const fallbackData = {
           uid: user.uid,
           email: user.email,
@@ -218,7 +217,7 @@ async function createPost(content, replyToId = null, quotedPostId = null, quoted
   }
 }
 
-// --- タイムライン描画 ---
+// --- 【超重要】innerHTMLを使わず、DOM要素を生成してタイムラインを安全に組み立てる関数 ---
 function loadTimeline() {
   const postsRef = ref(db, "posts");
 
@@ -226,7 +225,7 @@ function loadTimeline() {
     if (currentViewMode === "admin") return; 
 
     const timelineEl = document.getElementById("timeline");
-    timelineEl.innerHTML = "";
+    timelineEl.innerHTML = ""; // タイムラインを一旦クリア
     const postsData = snapshot.val() || {};
 
     const postsList = Object.keys(postsData).map(key => ({
@@ -260,35 +259,27 @@ function loadTimeline() {
       const hasLiked = likesObj[currentUserData.uid] === true;
       const likeColor = hasLiked ? "color: #f4212e;" : "";
 
-      // 時間表示を取得
-      const timeHTML = `<span class="post-time" style="color: #71767b; font-size: 13px; margin-left: auto;">${formatDate(post.createdAt)}</span>`;
-
-      // アバター画像の決定
-      let avatarHTML = `<div class="avatar">🧪</div>`;
-      if (post.senderIcon && post.senderIcon.startsWith("data:image")) {
-        avatarHTML = `<div class="avatar" style="background-image: url(${post.senderIcon})"></div>`;
-      } else if (post.senderIcon) {
-        avatarHTML = `<div class="avatar">${post.senderIcon}</div>`;
-      }
+      // 各要素を手動で組み立てることで、ボタンが確実に動くようにします
+      const container = document.createElement("div");
+      container.className = "thread-line-container";
 
       const isParentInThread = currentViewMode === "replies" && index === 0 && filteredPosts.length > 1;
       const threadLineHTML = isParentInThread ? `<div class="thread-line"></div>` : "";
 
-      let postHTML = `
-        <div class="thread-line-container">
-          ${threadLineHTML}
-          <div class="post" id="post-${postId}">
-            ${avatarHTML}
-            <div class="post-body" onclick="viewThread('${postId}')" style="cursor: pointer;">
-              <div class="post-header" style="display: flex; align-items: center; width: 100%;">
-                <span class="display-name" style="font-weight: bold; font-size: 15px; margin-right: 4px;">${dispName}</span>
-                <span class="user-id">@${loginId}</span>
-                ${timeHTML} </div>
-              <div class="post-content">${post.content}</div>
-      `;
+      // アバターの表示方法決定
+      let avatarStyle = "";
+      let avatarText = "🧪";
+      if (post.senderIcon && post.senderIcon.startsWith("data:image")) {
+        avatarStyle = `background-image: url(${post.senderIcon});`;
+        avatarText = "";
+      } else if (post.senderIcon) {
+        avatarText = post.senderIcon;
+      }
 
+      // 引用部分のHTML
+      let quoteHTML = "";
       if (post.quotedPostId && post.quotedData) {
-        postHTML += `
+        quoteHTML = `
           <div class="quoted-container">
             <div class="post-header" style="font-size: 13px;">
               <span class="display-name">${post.quotedData.senderName}</span>
@@ -301,31 +292,51 @@ function loadTimeline() {
         `;
       }
 
-      postHTML += `
-              <div class="post-actions" onclick="event.stopPropagation();">
-                <div class="action-btn" id="reply-btn-${postId}">💬 返信</div>
-                <div class="action-btn" style="${likeColor}" id="like-btn-${postId}">
-                  ❤️ <span>${likeCount}</span>
-                </div>
-                <div class="action-btn" id="quote-btn-${postId}">🔁 引用</div>
+      container.innerHTML = `
+        ${threadLineHTML}
+        <div class="post" id="post-${postId}">
+          <div class="avatar" style="${avatarStyle}">${avatarText}</div>
+          <div class="post-body" id="body-${postId}" style="cursor: pointer;">
+            <div class="post-header" style="display: flex; align-items: center; width: 100%;">
+              <span class="display-name" style="font-weight: bold; font-size: 15px; margin-right: 4px;">${dispName}</span>
+              <span class="user-id">@${loginId}</span>
+              <span class="post-time" style="color: #71767b; font-size: 13px; margin-left: auto;">${formatDate(post.createdAt)}</span>
+            </div>
+            <div class="post-content">${post.content}</div>
+            ${quoteHTML}
+            <div class="post-actions">
+              <div class="action-btn" id="reply-btn-${postId}">💬 返信</div>
+              <div class="action-btn" style="${likeColor}" id="like-btn-${postId}">
+                ❤️ <span id="like-count-${postId}">${likeCount}</span>
               </div>
+              <div class="action-btn" id="quote-btn-${postId}">🔁 引用</div>
             </div>
           </div>
         </div>
       `;
 
-      timelineEl.innerHTML += postHTML;
+      // タイムラインに要素を直接追加
+      timelineEl.appendChild(container);
 
-      setTimeout(() => {
-        const likeBtn = document.getElementById(`like-btn-${postId}`);
-        if (likeBtn) likeBtn.onclick = () => toggleLike(postId, likesObj);
+      // --- 【解決の鍵】DOMに追加直後、確実に1つずつイベントをバインドする ---
+      document.getElementById(`body-${postId}`).addEventListener("click", () => {
+        viewThread(postId);
+      });
 
-        const replyBtn = document.getElementById(`reply-btn-${postId}`);
-        if (replyBtn) replyBtn.onclick = () => openReplyModal(postId, post);
+      document.getElementById(`like-btn-${postId}`).addEventListener("click", (e) => {
+        e.stopPropagation(); // 詳細画面への遷移を防ぐ
+        toggleLike(postId, likesObj);
+      });
 
-        const quoteBtn = document.getElementById(`quote-btn-${postId}`);
-        if (quoteBtn) quoteBtn.onclick = () => setQuoteTarget(post);
-      }, 0);
+      document.getElementById(`reply-btn-${postId}`).addEventListener("click", (e) => {
+        e.stopPropagation(); 
+        openReplyModal(postId, post);
+      });
+
+      document.getElementById(`quote-btn-${postId}`).addEventListener("click", (e) => {
+        e.stopPropagation(); 
+        setQuoteTarget(post);
+      });
     });
   });
 }
@@ -409,16 +420,28 @@ function loadAdminUsers() {
       const user = users[uid];
       const row = document.createElement("div");
       row.className = "admin-user-row";
+      
+      const isMe = auth.currentUser && user.uid === auth.currentUser.uid;
+      
       row.innerHTML = `
         <div>
           <strong>${user.displayName}</strong> (@${user.userLoginId}) - ${user.email} 
           <span style="color: #f4212e; font-weight: bold;">[${user.role || "user"}]</span>
         </div>
-        <div>
-          ${user.uid !== auth.currentUser.uid ? `<button class="danger-btn" onclick="deleteUserAccount('${uid}')">強制BAN</button>` : "（あなた）"}
-        </div>
+        <div id="admin-action-${uid}"></div>
       `;
       usersContainer.appendChild(row);
+
+      // ボタンの動的生成とバインド（安全対策）
+      if (!isMe) {
+        const btn = document.createElement("button");
+        btn.className = "danger-btn";
+        btn.innerText = "強制BAN";
+        btn.onclick = () => deleteUserAccount(uid);
+        document.getElementById(`admin-action-${uid}`).appendChild(btn);
+      } else {
+        document.getElementById(`admin-action-${uid}`).innerText = "（あなた）";
+      }
     });
   });
 }
