@@ -29,8 +29,18 @@ let currentReplyToId = null;
 let currentViewMode = "home"; 
 let currentThreadPostId = null; 
 
+// --- 【追加】ミリ秒を「MM/DD HH:MM」の読みやすい形式に変換する関数 ---
+function formatDate(timestamp) {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${month}/${day} ${hours}:${minutes}`;
+}
+
 // --- 画像圧縮 ＆ Base64テキスト変換ロジック ---
-// これで画像を数KBのテキストにして、データベースに直接叩き込む！
 async function compressAndConvertToBase64(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -40,7 +50,7 @@ async function compressAndConvertToBase64(file) {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const max_size = 120; // アイコンなので120pxもあれば十分綺麗！極限までサイズ削減
+        const max_size = 120; 
         let width = img.width;
         let height = img.height;
 
@@ -61,7 +71,6 @@ async function compressAndConvertToBase64(file) {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
-        // JPEGかつ超低画質(0.4)で圧縮して、完全に数KBのテキストに落とし込む
         const compressedBase64 = canvas.toDataURL("image/jpeg", 0.4);
         resolve(compressedBase64);
       };
@@ -75,7 +84,7 @@ function showApp(user, docData) {
   document.getElementById("auth-gateway").style.display = "none";
   document.getElementById("app-container").style.display = "flex";
   
-  // アバター表示（Base64のテキストをそのまま画像のURLとして使えるよ）
+  // アバター表示
   const avatarEl = document.getElementById("current-user-avatar");
   if (docData.photoURL && docData.photoURL.startsWith("data:image")) {
     avatarEl.innerText = "";
@@ -85,9 +94,12 @@ function showApp(user, docData) {
     avatarEl.style.backgroundImage = "none";
   }
 
-  // 管理者権限（自分のアドレスに書き換えてね！）
-  if (docData.role === "admin" || docData.email === "ryukond2@gmail.com") {
+  // 管理者権限（君のメインアドレスに設定したよ！）
+  const normalizedEmail = (docData.email || "").toLowerCase().trim();
+  if (docData.role === "admin" || normalizedEmail === "ryukond2@gmail.com") {
     document.getElementById("nav-admin").style.display = "flex";
+  } else {
+    document.getElementById("nav-admin").style.display = "none";
   }
 
   loadTimeline();
@@ -108,7 +120,19 @@ onAuthStateChanged(auth, (user) => {
       if (data) {
         showApp(user, data);
       } else {
-        showAuth();
+        // もしAuthにはいるけどDBにユーザーデータがない場合
+        const fallbackData = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.email.split("@")[0],
+          userLoginId: "user" + Math.floor(1000 + Math.random() * 9000),
+          photoURL: "🧪",
+          role: user.email.toLowerCase().trim() === "ryukond2@gmail.com" ? "admin" : "user",
+          createdAt: Date.now()
+        };
+        set(ref(db, `users/${user.uid}`), fallbackData).then(() => {
+          showApp(user, fallbackData);
+        });
       }
     }, { onlyOnce: true });
   } else {
@@ -134,9 +158,8 @@ document.getElementById("btn-signup").addEventListener("click", async () => {
     const user = userCredential.user;
     const generatedId = romanName.toLowerCase().replace(/[^a-z0-9]/g, "") + Math.floor(1000 + Math.random() * 9000);
 
-    let finalPhotoUrl = "🧪"; // 初期値
+    let finalPhotoUrl = "🧪"; 
 
-    // 画像が選ばれていたら、Base64テキストに変換
     if (avatarFile) {
       finalPhotoUrl = await compressAndConvertToBase64(avatarFile);
     }
@@ -146,8 +169,8 @@ document.getElementById("btn-signup").addEventListener("click", async () => {
       email: email,
       displayName: name,
       userLoginId: generatedId,
-      photoURL: finalPhotoUrl, // ここに画像のテキストデータが入る！
-      role: email === "ryukond2@gmail.com" ? "admin" : "user", // 君のアドレスなら自動で管理者に
+      photoURL: finalPhotoUrl,
+      role: email.toLowerCase().trim() === "ryukond2@gmail.com" ? "admin" : "user",
       createdAt: Date.now()
     };
 
@@ -181,7 +204,7 @@ async function createPost(content, replyToId = null, quotedPostId = null, quoted
       senderId: currentUserData.uid,
       senderName: currentUserData.displayName,
       senderLoginId: currentUserData.userLoginId,
-      senderIcon: currentUserData.photoURL, // 投稿にもプロフのBase64文字列が自動で入る
+      senderIcon: currentUserData.photoURL, 
       likes: {},
       replyTo: replyToId, 
       quotedPostId: quotedPostId, 
@@ -237,7 +260,10 @@ function loadTimeline() {
       const hasLiked = likesObj[currentUserData.uid] === true;
       const likeColor = hasLiked ? "color: #f4212e;" : "";
 
-      // アバター画像の決定（Base64か、絵文字か）
+      // 時間表示を取得
+      const timeHTML = `<span class="post-time" style="color: #71767b; font-size: 13px; margin-left: auto;">${formatDate(post.createdAt)}</span>`;
+
+      // アバター画像の決定
       let avatarHTML = `<div class="avatar">🧪</div>`;
       if (post.senderIcon && post.senderIcon.startsWith("data:image")) {
         avatarHTML = `<div class="avatar" style="background-image: url(${post.senderIcon})"></div>`;
@@ -254,10 +280,10 @@ function loadTimeline() {
           <div class="post" id="post-${postId}">
             ${avatarHTML}
             <div class="post-body" onclick="viewThread('${postId}')" style="cursor: pointer;">
-              <div class="post-header">
-                <span class="display-name">${dispName}</span>
+              <div class="post-header" style="display: flex; align-items: center; width: 100%;">
+                <span class="display-name" style="font-weight: bold; font-size: 15px; margin-right: 4px;">${dispName}</span>
                 <span class="user-id">@${loginId}</span>
-              </div>
+                ${timeHTML} </div>
               <div class="post-content">${post.content}</div>
       `;
 
