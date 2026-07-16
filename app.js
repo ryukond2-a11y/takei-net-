@@ -26,8 +26,9 @@ const auth = getAuth(app);
 let currentUserData = null;
 let currentQuotedPost = null; 
 let currentReplyToId = null;  
-let currentViewMode = "home"; 
+let currentViewMode = "home"; // "home", "replies", "dm"
 let currentThreadPostId = null; 
+let currentActiveDmRoomId = null; 
 
 // --- ミリ秒を「MM/DD HH:MM」の読みやすい形式に変換する関数 ---
 function formatDate(timestamp) {
@@ -102,7 +103,7 @@ function showApp(user, docData) {
     }
   }
 
-  // 管理者権限チェック（君のアドレス: ryukond2@gmail.com）
+  // 管理者権限チェック（admin.html へのリンクを制御）
   const normalizedEmail = (docData.email || "").toLowerCase().trim();
   if (docData.role === "admin" || normalizedEmail === "ryukond2@gmail.com") {
     setDisplay("nav-admin", "flex");
@@ -110,7 +111,11 @@ function showApp(user, docData) {
     setDisplay("nav-admin", "none");
   }
 
-  loadTimeline();
+  if (currentViewMode === "dm") {
+    switchToDmView();
+  } else {
+    loadTimeline();
+  }
 }
 
 function showAuth() {
@@ -125,7 +130,6 @@ onAuthStateChanged(auth, (user) => {
     const userRef = ref(db, `users/${user.uid}`);
     onValue(userRef, (snapshot) => {
       const data = snapshot.val();
-      // data が存在し、かつオブジェクト（文字列の "" ではない）場合のみ正常処理
       if (data && typeof data === "object") {
         showApp(user, data);
       } else {
@@ -235,19 +239,64 @@ async function createPost(content, replyToId = null, quotedPostId = null, quoted
   }
 }
 
+// --- プロフィールモーダルを開く関数 ---
+function openProfileModal(uid) {
+  const userRef = ref(db, `users/${uid}`);
+  onValue(userRef, (snapshot) => {
+    const userData = snapshot.val();
+    if (!userData) return;
+
+    const modalName = document.getElementById("profile-modal-name");
+    const modalId = document.getElementById("profile-modal-id");
+    const modalAvatar = document.getElementById("profile-modal-avatar");
+    const dmBtn = document.getElementById("profile-modal-dm-btn");
+
+    if (modalName) modalName.innerText = userData.displayName;
+    if (modalId) modalId.innerText = `@${userData.userLoginId}`;
+    
+    if (modalAvatar) {
+      if (userData.photoURL && userData.photoURL.startsWith("data:image")) {
+        modalAvatar.innerText = "";
+        modalAvatar.style.backgroundImage = `url(${userData.photoURL})`;
+      } else {
+        modalAvatar.innerText = userData.photoURL || "🧪";
+        modalAvatar.style.backgroundImage = "none";
+      }
+    }
+
+    if (dmBtn) {
+      if (uid === currentUserData.uid) {
+        dmBtn.style.display = "none";
+      } else {
+        dmBtn.style.display = "block";
+        dmBtn.onclick = () => {
+          setDisplay("profile-modal", "none");
+          startDmWithUser(userData);
+        };
+      }
+    }
+
+    setDisplay("profile-modal", "flex");
+  }, { onlyOnce: true });
+}
+
+const closeProfileModalBtn = document.getElementById("close-profile-modal");
+if (closeProfileModalBtn) {
+  closeProfileModalBtn.onclick = () => { setDisplay("profile-modal", "none"); };
+}
+
 // --- タイムライン描画 ---
 function loadTimeline() {
   const postsRef = ref(db, "posts");
 
   onValue(postsRef, (snapshot) => {
-    if (currentViewMode === "admin") return; 
+    if (currentViewMode === "dm") return; 
 
     const timelineEl = document.getElementById("timeline");
     if (!timelineEl) return;
     timelineEl.innerHTML = ""; 
     
     const rawData = snapshot.val();
-    // posts の中身が空欄、もしくは文字列の "" だった場合の安全ガード
     if (!rawData || typeof rawData !== "object") {
       timelineEl.innerHTML = "<div style='text-align:center; padding: 20px; color:#71767b;'>投稿がまだありません。最初の投稿をしてみよう！</div>";
       return;
@@ -292,7 +341,6 @@ function loadTimeline() {
       const isParentInThread = currentViewMode === "replies" && index === 0 && filteredPosts.length > 1;
       const threadLineHTML = isParentInThread ? `<div class="thread-line"></div>` : "";
 
-      // アバター表示
       let avatarStyle = "";
       let avatarText = "🧪";
       if (post.senderIcon && post.senderIcon.startsWith("data:image")) {
@@ -302,7 +350,6 @@ function loadTimeline() {
         avatarText = post.senderIcon;
       }
 
-      // 引用部分
       let quoteHTML = "";
       if (post.quotedPostId && post.quotedData) {
         quoteHTML = `
@@ -321,10 +368,10 @@ function loadTimeline() {
       container.innerHTML = `
         ${threadLineHTML}
         <div class="post" id="post-${postId}">
-          <div class="avatar" style="${avatarStyle}">${avatarText}</div>
+          <div class="avatar" id="avatar-click-${postId}" style="${avatarStyle} cursor: pointer;">${avatarText}</div>
           <div class="post-body" id="body-${postId}" style="cursor: pointer;">
             <div class="post-header" style="display: flex; align-items: center; width: 100%;">
-              <span class="display-name" style="font-weight: bold; font-size: 15px; margin-right: 4px;">${dispName}</span>
+              <span class="display-name" id="name-click-${postId}" style="font-weight: bold; font-size: 15px; margin-right: 4px; cursor: pointer;">${dispName}</span>
               <span class="user-id">@${loginId}</span>
               <span class="post-time" style="color: #71767b; font-size: 13px; margin-left: auto;">${formatDate(post.createdAt)}</span>
             </div>
@@ -343,7 +390,19 @@ function loadTimeline() {
 
       timelineEl.appendChild(container);
 
-      // イベントリスナーの安全登録
+      // プロフィール画面ポップアップイベント登録
+      if (!post.isMigrated && post.senderId) {
+        document.getElementById(`avatar-click-${postId}`)?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openProfileModal(post.senderId);
+        });
+        document.getElementById(`name-click-${postId}`)?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openProfileModal(post.senderId);
+        });
+      }
+
+      // イベントリスナー
       document.getElementById(`body-${postId}`)?.addEventListener("click", () => {
         viewThread(postId);
       });
@@ -431,14 +490,19 @@ if (backToHomeBtn) {
   };
 }
 
-// --- 管理者パネル ---
-const navAdmin = document.getElementById("nav-admin");
-if (navAdmin) {
-  navAdmin.onclick = () => {
-    currentViewMode = "admin";
-    setDisplay("main-content", "none");
-    setDisplay("admin-panel", "flex");
-    loadAdminUsers();
+// --- ダイレクトメッセージ (DM) システム ---
+
+function switchToDmView() {
+  currentViewMode = "dm";
+  setDisplay("main-content", "none");
+  setDisplay("dm-content", "flex");
+  loadDmThreads();
+}
+
+const navDm = document.getElementById("nav-dm");
+if (navDm) {
+  navDm.onclick = () => {
+    switchToDmView();
   };
 }
 
@@ -447,92 +511,30 @@ if (navHome) {
   navHome.onclick = () => {
     currentViewMode = "home";
     setDisplay("main-content", "block");
-    setDisplay("admin-panel", "none");
+    setDisplay("dm-content", "none");
     loadTimeline();
   };
 }
 
-function loadAdminUsers() {
-  const usersRef = ref(db, "users");
-  onValue(usersRef, (snapshot) => {
-    const usersContainer = document.getElementById("admin-user-list");
-    if (!usersContainer) return;
-    usersContainer.innerHTML = "";
-    const rawData = snapshot.val();
-    if (!rawData || typeof rawData !== "object") return;
+// ユーザーIDからDMを開始
+const btnStartDmSearch = document.getElementById("btn-start-dm-search");
+if (btnStartDmSearch) {
+  btnStartDmSearch.addEventListener("click", () => {
+    const searchIdInput = document.getElementById("dm-search-id");
+    if (!searchIdInput) return;
+    const searchId = searchIdInput.value.trim().toLowerCase().replace("@", "");
+    if (!searchId) return alert("ユーザーIDを入力してね");
 
-    Object.keys(rawData).forEach(uid => {
-      const user = rawData[uid];
-      const row = document.createElement("div");
-      row.className = "admin-user-row";
-      
-      const isMe = auth.currentUser && user.uid === auth.currentUser.uid;
-      
-      row.innerHTML = `
-        <div>
-          <strong>${user.displayName}</strong> (@${user.userLoginId}) - ${user.email} 
-          <span style="color: #f4212e; font-weight: bold;">[${user.role || "user"}]</span>
-        </div>
-        <div id="admin-action-${uid}"></div>
-      `;
-      usersContainer.appendChild(row);
+    const usersRef = ref(db, "users");
+    onValue(usersRef, (snapshot) => {
+      const users = snapshot.val() || {};
+      const foundUser = Object.values(users).find(u => (u.userLoginId || "").toLowerCase() === searchId);
 
-      const actionContainer = document.getElementById(`admin-action-${uid}`);
-      if (actionContainer) {
-        if (!isMe) {
-          const btn = document.createElement("button");
-          btn.className = "danger-btn";
-          btn.innerText = "強制BAN";
-          btn.onclick = () => deleteUserAccount(uid);
-          actionContainer.appendChild(btn);
-        } else {
-          actionContainer.innerText = "（あなた）";
-        }
-      }
-    });
-  });
-}
-
-window.deleteUserAccount = async function(uid) {
-  if (confirm("本当にこのアカウントを強制BANしますか？")) {
-    await remove(ref(db, `users/${uid}`));
-    alert("削除完了しました。");
-  }
-};
-
-// 投稿するボタン
-const submitPostBtn = document.getElementById("submit-post");
-if (submitPostBtn) {
-  submitPostBtn.addEventListener("click", () => {
-    const input = document.getElementById("post-input");
-    if (input && input.value.trim() !== "") {
-      if (currentQuotedPost) {
-        createPost(input.value, null, currentQuotedPost.id, {
-          senderName: currentQuotedPost.senderName,
-          senderLoginId: currentQuotedPost.senderLoginId,
-          content: currentQuotedPost.content
-        });
+      if (foundUser) {
+        startDmWithUser(foundUser);
+        searchIdInput.value = "";
       } else {
-        createPost(input.value);
+        alert(`@${searchId} というユーザーIDは見つかりませんでした。`);
       }
-      input.value = "";
-    }
+    }, { onlyOnce: true });
   });
-}
-
-// 登録・ログイン表示切替
-const toSignup = document.getElementById("to-signup");
-if (toSignup) {
-  toSignup.onclick = () => {
-    setDisplay("login-card", "none");
-    setDisplay("signup-card", "block");
-  };
-}
-
-const toLogin = document.getElementById("to-login");
-if (toLogin) {
-  toLogin.onclick = () => {
-    setDisplay("signup-card", "none");
-    setDisplay("login-card", "block");
-  };
-}
