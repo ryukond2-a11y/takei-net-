@@ -86,7 +86,7 @@ function showApp(user, docData) {
   }
 
   // 管理者権限（自分のアドレスに書き換えてね！）
-  if (docData.role === "admin" || docData.email === "ryushun.konda@gmail.com") {
+  if (docData.role === "admin" || docData.email === "ryukond2@gmail.com") {
     document.getElementById("nav-admin").style.display = "flex";
   }
 
@@ -147,7 +147,7 @@ document.getElementById("btn-signup").addEventListener("click", async () => {
       displayName: name,
       userLoginId: generatedId,
       photoURL: finalPhotoUrl, // ここに画像のテキストデータが入る！
-      role: email === "ryushun.konda@gmail.com" ? "admin" : "user", // 君のアドレスなら自動で管理者に
+      role: email === "ryukond2@gmail.com" ? "admin" : "user", // 君のアドレスなら自動で管理者に
       createdAt: Date.now()
     };
 
