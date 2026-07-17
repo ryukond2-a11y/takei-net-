@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>takei.net plus - 管理者用パネル</title>
+  <title>takei.net plus - 管理者用総合パネル</title>
   <style>
     body {
       background-color: #0b0f19;
@@ -15,17 +15,60 @@
     h1 {
       border-bottom: 2px solid #1d9bf0;
       padding-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .container {
-      max-width: 1000px;
+      max-width: 1100px;
       margin: 0 auto;
     }
-    .search-box {
+    .back-btn {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #1d9bf0;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    
+    /* タブ切り替えシステム */
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #2f3e56;
+      padding-bottom: 10px;
+    }
+    .tab-btn {
+      background: #151f32;
+      color: #71767b;
+      border: 1px solid #2f3e56;
+      padding: 10px 20px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .tab-btn.active {
+      background: #1d9bf0;
+      color: #fff;
+      border-color: #1d9bf0;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    .search-box, .danger-zone {
       background: #151f32;
       padding: 15px;
       border-radius: 8px;
       margin-bottom: 20px;
       border: 1px solid #2f3e56;
+    }
+    .danger-zone {
+      border-color: #dc3545;
     }
     .search-box input {
       padding: 8px 12px;
@@ -37,7 +80,7 @@
       width: 200px;
       margin-bottom: 10px;
     }
-    .search-box button {
+    button {
       background: #1d9bf0;
       color: white;
       border: none;
@@ -45,6 +88,15 @@
       border-radius: 4px;
       cursor: pointer;
       font-weight: bold;
+    }
+    button.danger-btn {
+      background: #dc3545;
+    }
+    button.danger-btn:hover {
+      background: #bd2130;
+    }
+    button.warning-btn {
+      background: #f59e0b;
     }
     table {
       width: 100%;
@@ -65,53 +117,128 @@
     tr:hover {
       background-color: #1c2a43;
     }
-    .back-btn {
+    
+    /* 通知バッジ */
+    .badge {
       display: inline-block;
-      margin-bottom: 20px;
-      color: #1d9bf0;
-      text-decoration: none;
-      font-weight: bold;
+      width: 10px;
+      height: 10px;
+      background-color: #ef4444;
+      border-radius: 50%;
+      margin-left: 8px;
+      display: none; /* 新着があるときだけJSで表示 */
     }
   </style>
 </head>
 <body>
   <div class="container">
     <a href="index.html" class="back-btn">← アプリに戻る</a>
-    <h1>⚙️ 管理者専用ページ (全DMログ監視システム)</h1>
+    <h1>
+      <span>⚙️ 管理者専用総合パネル <span id="dm-alert-badge" class="badge"></span></span>
+      <button id="btn-request-notif" style="font-size: 12px; background: #374151;">🔔 デスクトップ通知を有効にする</button>
+    </h1>
 
-    <div class="search-box">
-      <h3>DMログの検索・フィルタ</h3>
-      <input type="text" id="search-sender" placeholder="送信者ID (部分一致可)">
-      <input type="text" id="search-receiver" placeholder="受信者ID (部分一致可)">
-      <input type="text" id="search-text" placeholder="メッセージ内容で検索">
-      <button id="btn-search-dm">検索</button>
-      <button id="btn-reset-dm" style="background:#4b5563;">リセット</button>
+    <!-- タブメニュー -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('tab-dm')">💬 DMログ監視</button>
+      <button class="tab-btn" onclick="switchTab('tab-posts')">📝 全投稿管理</button>
+      <button class="tab-btn" onclick="switchTab('tab-users')">👥 ユーザー凍結・管理</button>
     </div>
 
-    <div style="overflow-x: auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>送信日時</th>
-            <th>送信者ID (Sender)</th>
-            <th>受信者ID (Receiver)</th>
-            <th>メッセージ本文</th>
-          </tr>
-        </thead>
-        <tbody id="dm-log-table-body">
-          <tr>
-            <td colspan="4" style="text-align: center; color: #71767b;">ログを読み込み中...</td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- =============== TAB 1: DMログ監視 =============== -->
+    <div id="tab-dm" class="tab-content active">
+      <div class="search-box">
+        <h3>DMログの検索・フィルタ</h3>
+        <input type="text" id="search-sender" placeholder="送信者ID (部分一致可)">
+        <input type="text" id="search-receiver" placeholder="受信者ID (部分一致可)">
+        <input type="text" id="search-text" placeholder="メッセージ内容で検索">
+        <button id="btn-search-dm">検索</button>
+        <button id="btn-reset-dm" style="background:#4b5563;">リセット</button>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>送信日時</th>
+              <th>送信者ID (Sender)</th>
+              <th>受信者ID (Receiver)</th>
+              <th>メッセージ本文</th>
+            </tr>
+          </thead>
+          <tbody id="dm-log-table-body">
+            <tr>
+              <td colspan="4" style="text-align: center; color: #71767b;">ログを読み込み中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
+
+    <!-- =============== TAB 2: 全投稿管理 =============== -->
+    <div id="tab-posts" class="tab-content">
+      <div class="danger-zone">
+        <h3>🚨 デンジャーゾーン（全投稿削除）</h3>
+        <p>ボタンを押すと、すべてのタイムライン投稿（posts）がデータベースから**完全に消去**されます。復旧はできません。</p>
+        <button class="danger-btn" id="btn-delete-all-posts">⚠️ すべての投稿を完全に削除する</button>
+      </div>
+
+      <h3>📝 投稿一覧（個別削除）</h3>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>投稿日時</th>
+              <th>投稿者</th>
+              <th>内容</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="posts-table-body">
+            <tr>
+              <td colspan="4" style="text-align: center; color: #71767b;">投稿を読み込み中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =============== TAB 3: ユーザー凍結・管理 =============== -->
+    <div id="tab-users" class="tab-content">
+      <div class="danger-zone">
+        <h3>⚠️ 全アカウント一括凍結</h3>
+        <p>管理者を除くすべてのユーザーのアカウントを一時的に「凍結」状態にします。</p>
+        <button class="danger-btn" id="btn-freeze-all-users">🚨 全一般アカウントを凍結する</button>
+        <button id="btn-unfreeze-all-users" style="background: #10b981; margin-left: 10px;">🔓 全アカウントの凍結を解除する</button>
+      </div>
+
+      <h3>👥 アカウント一覧と個別状態</h3>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ユーザーID</th>
+              <th>UID</th>
+              <th>ステータス</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body">
+            <tr>
+              <td colspan="4" style="text-align: center; color: #71767b;">ユーザーデータを読み込み中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // アプリと同期したFirebase設定
+    // Firebase設定 (※お使いの環境に合わせて同期してください)
     const firebaseConfig = {
       apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
       authDomain: "takei-netplus.firebaseapp.com",
@@ -126,63 +253,111 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let allDMs = []; // 解析済みの全DMログを保持
-    let usersMap = {}; // UIDからログインID(userLoginId)を引くためのマッピング用
+    // 【重要】もしあなたのDBのDMのパスが 'dms' の場合はここを 'dms' に変更してください。
+    const DM_PATH = 'direct_messages'; 
+    const USERS_PATH = 'users';
+    const POSTS_PATH = 'posts';
 
-    // 1. まずユーザー一覧を取得して、UIDをログインID(@...)に変換できるようにする
-    const usersRef = ref(db, 'users');
-    onValue(usersRef, (userSnapshot) => {
-      const usersData = userSnapshot.val() || {};
+    let allDMs = [];
+    let rawUsersData = {}; 
+    let usersMap = {}; 
+    let firstLoadFinished = false;
+
+    // デスクトップ通知の許可リクエスト
+    document.getElementById('btn-request-notif').onclick = () => {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          alert('通知が許可されました！');
+        }
+      });
+    };
+
+    // 1. ユーザーデータの取得と監視
+    onValue(ref(db, USERS_PATH), (snapshot) => {
+      rawUsersData = snapshot.val() || {};
       usersMap = {};
-      Object.keys(usersData).forEach(uid => {
-        usersMap[uid] = usersData[uid].userLoginId || "unknown";
+      Object.keys(rawUsersData).forEach(uid => {
+        usersMap[uid] = rawUsersData[uid].userLoginId || "unknown";
       });
 
-      // ユーザー情報のロードが終わったら、あるいは更新されたら、DMログの解析を走らせる
+      renderUsersTable();
       loadAndParseDMs();
+    }, (error) => {
+      console.error("ユーザー取得エラー:", error);
     });
 
-    // 2. DMデータをロードして、送信者・受信者のログインIDを紐付ける
+    // 2. DMデータの取得、パース、新着通知
     function loadAndParseDMs() {
-      const dmsRef = ref(db, 'direct_messages');
-      onValue(dmsRef, (snapshot) => {
+      onValue(ref(db, DM_PATH), (snapshot) => {
         const data = snapshot.val();
-        allDMs = [];
+        const tempDMs = [];
 
         if (data) {
-          // ルームキー（例: "uidA_uidB"）ごとにループ
           Object.keys(data).forEach(roomKey => {
             const uids = roomKey.split("_");
             const thread = data[roomKey];
 
-            Object.keys(thread).forEach(msgId => {
-              const msg = thread[msgId];
-              
-              // 送信者と受信者のUIDを特定
-              const sUid = msg.senderId;
-              const rUid = uids.find(id => id !== sUid) || "unknown";
+            if (thread && typeof thread === 'object') {
+              Object.keys(thread).forEach(msgId => {
+                const msg = thread[msgId];
+                if (msg) {
+                  const sUid = msg.senderId;
+                  const rUid = uids.find(id => id !== sUid) || "unknown";
 
-              // UIDをログインID（@...）に変換。未登録ならUIDをそのままフォールバック
-              const senderLoginId = usersMap[sUid] || sUid || '不明';
-              const receiverLoginId = usersMap[rUid] || rUid || '不明';
+                  const senderLoginId = usersMap[sUid] || sUid || '不明';
+                  const receiverLoginId = usersMap[rUid] || rUid || '不明';
 
-              allDMs.push({
-                rawTimestamp: msg.createdAt || 0, // ソート用
-                timestamp: msg.createdAt ? new Date(msg.createdAt).toLocaleString('ja-JP') : '不明',
-                senderId: senderLoginId,
-                receiverId: receiverLoginId,
-                text: msg.text || ''
+                  tempDMs.push({
+                    rawTimestamp: msg.createdAt || 0,
+                    timestamp: msg.createdAt ? new Date(msg.createdAt).toLocaleString('ja-JP') : '不明',
+                    senderId: senderLoginId,
+                    receiverId: receiverLoginId,
+                    text: msg.text || ''
+                  });
+                }
               });
-            });
+            }
           });
         }
+
+        // 新着DMチェック（最初のロード以降にデータ数が増えたら赤印＆通知）
+        if (firstLoadFinished && tempDMs.length > allDMs.length) {
+          triggerDMAlert();
+        }
         
-        // 初期描画（ソートはrender側で実行）
+        allDMs = tempDMs;
+        firstLoadFinished = true;
         renderDMLogs(allDMs);
+      }, (error) => {
+        console.error("DM取得エラー (パス名を確認してください):", error);
+        document.getElementById('dm-log-table-body').innerHTML = 
+          `<tr><td colspan="4" style="text-align: center; color: #ef4444;">エラー: データベースからDMを取得できませんでした。パスが「${DM_PATH}」で合っているか確認してください。</td></tr>`;
       });
     }
 
-    // 3. ログを描画する関数
+    // 新しいDMが来たときの通知アクション
+    function triggerDMAlert() {
+      // 1. タブ内の赤い印（バッジ）を表示
+      document.getElementById('dm-alert-badge').style.display = 'inline-block';
+      // 2. タイトルの頭に【新着DM】をつける
+      document.title = "🔴 【新着DMあり】takei.net plus - 管理者用パネル";
+      
+      // 3. デスクトップ通知が許可されていれば送る
+      if (Notification.permission === 'granted') {
+        new Notification("📬 新着メッセージを受信しました", {
+          body: "管理者パネルのDMログを確認してください。",
+          icon: "https://www.gstatic.com/mobilesdk/160505_mobilesdk/discovery_logo/firebase_color_128dp.png"
+        });
+      }
+    }
+
+    // DMの赤印をリセットする（DMタブを表示したときなど）
+    function resetDMAlert() {
+      document.getElementById('dm-alert-badge').style.display = 'none';
+      document.title = "takei.net plus - 管理者用パネル";
+    }
+
+    // 3. DMログをテーブルへレンダリング
     function renderDMLogs(logs) {
       const tbody = document.getElementById('dm-log-table-body');
       tbody.innerHTML = '';
@@ -192,7 +367,6 @@
         return;
       }
 
-      // 送信日時（ミリ秒数値）が新しい順（降順）に正しくソート
       logs.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
 
       logs.forEach(log => {
@@ -207,7 +381,7 @@
       });
     }
 
-    // 4. 検索ボタンのクリック処理
+    // DM検索ロジック
     document.getElementById('btn-search-dm').onclick = () => {
       const senderFilter = document.getElementById('search-sender').value.toLowerCase().trim();
       const receiverFilter = document.getElementById('search-receiver').value.toLowerCase().trim();
@@ -223,13 +397,163 @@
       renderDMLogs(filtered);
     };
 
-    // 5. リセットボタンの処理
     document.getElementById('btn-reset-dm').onclick = () => {
       document.getElementById('search-sender').value = '';
       document.getElementById('search-receiver').value = '';
       document.getElementById('search-text').value = '';
       renderDMLogs(allDMs);
     };
+
+
+    // ================== POSTS (投稿管理) の制御 ==================
+    onValue(ref(db, POSTS_PATH), (snapshot) => {
+      const postsData = snapshot.val();
+      const tbody = document.getElementById('posts-table-body');
+      tbody.innerHTML = '';
+
+      if (!postsData) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #71767b;">投稿はありません。</td></tr>`;
+        return;
+      }
+
+      const postsList = [];
+      Object.keys(postsData).forEach(postId => {
+        const post = postsData[postId];
+        postsList.push({
+          id: postId,
+          createdAt: post.createdAt || 0,
+          timestamp: post.createdAt ? new Date(post.createdAt).toLocaleString('ja-JP') : '不明',
+          userId: usersMap[post.userId] || post.userId || '不明',
+          text: post.text || ''
+        });
+      });
+
+      // 新しい順にソート
+      postsList.sort((a, b) => b.createdAt - a.createdAt);
+
+      postsList.forEach(post => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="white-space: nowrap;">${post.timestamp}</td>
+          <td style="font-weight: bold; color: #1d9bf0;">@${post.userId}</td>
+          <td style="word-break: break-all;">${post.text}</td>
+          <td><button class="danger-btn" onclick="deletePost('${post.id}')">削除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }, (error) => {
+      console.error("投稿取得エラー:", error);
+    });
+
+    // 個別投稿削除
+    window.deletePost = function(postId) {
+      if (confirm("この投稿を本当に削除しますか？")) {
+        remove(ref(db, `${POSTS_PATH}/${postId}`))
+          .then(() => alert("投稿を削除しました。"))
+          .catch(err => alert("削除に失敗しました: " + err.message));
+      }
+    };
+
+    // すべての投稿を削除
+    document.getElementById('btn-delete-all-posts').onclick = () => {
+      if (confirm("🚨 本当にすべての投稿を完全に消去しますか？この操作は取り消せません。")) {
+        remove(ref(db, POSTS_PATH))
+          .then(() => alert("すべての投稿を削除しました。"))
+          .catch(err => alert("全消去に失敗しました: " + err.message));
+      }
+    };
+
+
+    // ================== USERS (凍結管理) の制御 ==================
+    function renderUsersTable() {
+      const tbody = document.getElementById('users-table-body');
+      tbody.innerHTML = '';
+
+      const uids = Object.keys(rawUsersData);
+      if (uids.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #71767b;">登録ユーザーはいません。</td></tr>`;
+        return;
+      }
+
+      uids.forEach(uid => {
+        const user = rawUsersData[uid];
+        const loginId = user.userLoginId || "未設定";
+        const isFrozen = user.status === 'frozen';
+        const statusText = isFrozen ? "❌ 凍結中" : "🟢 アクティブ";
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight: bold;">@${loginId}</td>
+          <td style="font-size: 12px; color: #71767b;">${uid}</td>
+          <td style="color: ${isFrozen ? '#ef4444' : '#10b981'}">${statusText}</td>
+          <td>
+            ${isFrozen ? 
+              `<button style="background:#10b981;" onclick="toggleFreeze('${uid}', false)">凍結解除</button>` : 
+              `<button class="warning-btn" onclick="toggleFreeze('${uid}', true)">凍結する</button>`
+            }
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 個別のアカウント凍結・解除切り替え
+    window.toggleFreeze = function(uid, shouldFreeze) {
+      const status = shouldFreeze ? 'frozen' : 'active';
+      update(ref(db, `${USERS_PATH}/${uid}`), { status: status })
+        .then(() => alert(`ユーザーのステータスを ${status} に変更しました。`))
+        .catch(err => alert("変更エラー: " + err.message));
+    };
+
+    // すべてのアカウントを一括凍結する
+    document.getElementById('btn-freeze-all-users').onclick = () => {
+      if (confirm("⚠️ 本当にすべての一般アカウントを凍結しますか？")) {
+        const updates = {};
+        Object.keys(rawUsersData).forEach(uid => {
+          // 管理者アカウント（例: admin等）を除外したい場合はここでif条件を挟んでください
+          updates[`${USERS_PATH}/${uid}/status`] = 'frozen';
+        });
+
+        update(ref(db), updates)
+          .then(() => alert("すべての一般ユーザーアカウントを凍結しました。"))
+          .catch(err => alert("一括凍結エラー: " + err.message));
+      }
+    };
+
+    // すべてのアカウントの凍結を一括解除する
+    document.getElementById('btn-unfreeze-all-users').onclick = () => {
+      if (confirm("すべての一般アカウントの凍結を解除しますか？")) {
+        const updates = {};
+        Object.keys(rawUsersData).forEach(uid => {
+          updates[`${USERS_PATH}/${uid}/status`] = 'active';
+        });
+
+        update(ref(db), updates)
+          .then(() => alert("すべてのアカウントの凍結を解除しました。"))
+          .catch(err => alert("凍結解除エラー: " + err.message));
+      }
+    };
+
+
+    // ================== タブの切り替え制御 ==================
+    window.switchTab = function(tabId) {
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      document.getElementById(tabId).classList.add('active');
+      // クリックしたボタンをアクティブにする
+      event.target.classList.add('active');
+
+      // DMタブを開いたら新着通知を消す
+      if (tabId === 'tab-dm') {
+        resetDMAlert();
+      }
+    };
+
   </script>
 </body>
 </html>
