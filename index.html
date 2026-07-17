@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>takei.net plus</title>
   <style>
-    /* 🎨 CSSデザイン */
+    /* 🎨 全体基本デザイン */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background-color: #000; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     
-    /* 認証ゲートウェイ */
+    /* 🔐 認証ゲートウェイ */
     .card-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
     .card { background: #15181c; border-radius: 16px; padding: 30px; width: 100%; max-width: 400px; text-align: left; box-shadow: 0 8px 24px rgba(255,255,255,0.05); }
     .card h2 { margin-bottom: 20px; font-size: 24px; text-align: center; font-weight: bold; }
@@ -20,24 +20,32 @@
     .card button:hover { background: #d7dbdc; }
     .card p { text-align: center; }
 
-    /* メインレイアウト */
+    /* 📱 メインレイアウト */
     #app-container { display: flex; min-height: 100vh; max-width: 1200px; margin: 0 auto; }
     
-    /* 左ナビゲーション */
+    /* 💻 PC用左サイドバー */
     .sidebar { width: 275px; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #2f3336; height: 100vh; position: sticky; top: 0; }
     .sidebar nav { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
     .sidebar button { background: none; border: none; color: #e7e9ea; font-size: 20px; text-align: left; padding: 12px 20px; border-radius: 9999px; cursor: pointer; display: flex; align-items: center; gap: 15px; width: fit-content; transition: 0.2s; }
     .sidebar button:hover { background: #16181c; }
     #btn-logout { margin-top: auto; background: none; border: 1px solid #536471; color: #f4212e; text-align: center; justify-content: center; font-size: 16px; width: 100%; }
     
-    /* メインコンテンツ */
-    .main-content { flex: 1; max-width: 600px; border-right: 1px solid #2f3336; min-height: 100vh; padding-bottom: 100px; }
-    .main-header { position: sticky; top: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid #2f3336; padding: 15px; z-index: 10; }
-    .main-header h1 { font-size: 20px; font-weight: bold; }
+    /* 📱 スマホ用下部ナビゲーションバー（ボトムナビ） */
+    .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: #000; border-top: 1px solid #2f3336; z-index: 99; justify-content: space-around; align-items: center; }
+    .mobile-nav-btn { background: none; border: none; color: #71767b; font-size: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 25%; height: 100%; cursor: pointer; text-decoration: none; position: relative; }
+    .mobile-nav-btn.active { color: #1d9bf0; }
+    .mobile-nav-btn span { font-size: 10px; margin-top: 2px; }
 
-    /* 🏷️ カテゴリ選択タブ（スレッド切り替え） */
-    .category-tabs { display: flex; border-bottom: 1px solid #2f3336; background: #000; overflow-x: auto; }
-    .category-tab { flex: 1; text-align: center; padding: 15px 10px; cursor: pointer; font-size: 14px; font-weight: bold; color: #71767b; border-bottom: 3px solid transparent; transition: 0.2s; white-space: nowrap; }
+    /* メインコンテンツエリア */
+    .main-content { flex: 1; max-width: 600px; border-right: 1px solid #2f3336; min-height: 100vh; padding-bottom: 80px; }
+    .main-header { position: sticky; top: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid #2f3336; padding: 15px; z-index: 10; display: flex; justify-content: space-between; align-items: center; }
+    .main-header h1 { font-size: 20px; font-weight: bold; }
+    .main-header .header-avatar { width: 32px; height: 32px; border-radius: 50%; background: #2f3336; display: none; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; background-size: cover; background-position: center; cursor: pointer; }
+
+    /* 🏷️ スレッド切り替えタブ（スマホでもスクロール可） */
+    .category-tabs { display: flex; border-bottom: 1px solid #2f3336; background: #000; overflow-x: auto; scrollbar-width: none; }
+    .category-tabs::-webkit-scrollbar { display: none; }
+    .category-tab { flex: 1; text-align: center; padding: 15px 10px; cursor: pointer; font-size: 13px; font-weight: bold; color: #71767b; border-bottom: 3px solid transparent; transition: 0.2s; white-space: nowrap; min-width: 100px; }
     .category-tab:hover { background: #16181c; color: #e7e9ea; }
     .category-tab.active { color: #e7e9ea; border-bottom-color: #1d9bf0; }
 
@@ -52,20 +60,21 @@
     .post:hover { background: #080808; }
     .avatar { width: 40px; height: 40px; border-radius: 50%; background: #2f3336; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; cursor: pointer; background-size: cover; background-position: center; flex-shrink: 0; }
     .post-body { flex: 1; margin-left: 12px; min-width: 0; }
-    .post-header { display: flex; gap: 8px; font-size: 15px; margin-bottom: 4px; color: #71767b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .post-header { display: flex; gap: 6px; font-size: 14px; margin-bottom: 4px; color: #71767b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-items: center; }
     .post-header .display-name { color: #f7f9fa; font-weight: bold; }
     .post-content { font-size: 15px; line-height: 1.5; color: #e7e9ea; word-break: break-all; }
     .post-actions { display: flex; gap: 40px; margin-top: 12px; color: #71767b; font-size: 13px; }
-    .action-btn { cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
+    .action-btn { cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; -webkit-tap-highlight-color: transparent; }
     .action-btn:hover { color: #1d9bf0; }
+    .action-btn.liked { color: #f91880 !important; }
 
-    /* 引用プレビュー */
+    /* 🔗 引用元プレビュー */
     .quoted-container { border: 1px solid #2f3336; border-radius: 12px; padding: 12px; margin-top: 8px; cursor: pointer; background: #050505; transition: 0.2s; }
     .quoted-container:hover { border-color: #536471; background: #101010; }
 
-    /* スレッド詳細 */
+    /* 🧵 スレッド詳細 */
     #thread-detail-container { padding: 15px; }
-    .back-btn { background: none; border: none; color: #1d9bf0; font-size: 16px; cursor: pointer; margin-bottom: 15px; }
+    .back-btn { background: none; border: none; color: #1d9bf0; font-size: 16px; cursor: pointer; margin-bottom: 15px; display: flex; align-items: center; gap: 5px; }
 
     /* モーダル */
     .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(91, 112, 131, 0.4); display: flex; justify-content: center; align-items: center; z-index: 100; }
@@ -75,17 +84,18 @@
     .modal button { width: 100%; padding: 12px; border-radius: 9999px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
 
     /* DM 画面 */
-    #dm-content { display: flex; flex-direction: column; height: 100%; min-height: calc(100vh - 60px); }
+    #dm-content { display: flex; flex-direction: column; height: 100%; min-height: calc(100vh - 120px); }
     .dm-start-form { padding: 15px; border-bottom: 1px solid #2f3336; display: flex; gap: 10px; }
     .dm-start-form input { flex: 1; background: #15181c; border: 1px solid #2f3336; color: #fff; padding: 10px 15px; border-radius: 9999px; outline: none; }
     .dm-start-form button { background: #1d9bf0; color: #fff; border: none; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer; }
     
-    /* モバイルレスポンシブ */
+    /* 📱 レスポンシブ (タブレット・スマホ対応) */
     @media (max-width: 700px) {
-      .sidebar { width: 70px; padding: 10px 5px; align-items: center; }
-      .sidebar button span:not(#notif-badge) { display: none; }
-      .sidebar button { padding: 10px; justify-content: center; }
-      #app-container { width: 100%; }
+      .sidebar { display: none; } /* PCサイドバーを隠す */
+      .mobile-nav { display: flex; } /* ボトムナビを出す */
+      .main-header .header-avatar { display: flex; } /* スマホのヘッダーに自分のアイコンを表示 */
+      .main-content { max-width: 100%; width: 100%; padding-bottom: 80px; }
+      .post-actions { gap: 30px; justify-content: space-between; padding-right: 20px; }
     }
   </style>
 </head>
@@ -96,7 +106,7 @@
     <!-- ログイン -->
     <div id="login-card" class="card">
       <h2>ログイン</h2>
-      <label>ログインID (英数字) または メールアドレス</label>
+      <label>ログインID または メールアドレス</label>
       <input type="text" id="login-identifier" placeholder="例: ryu123 または example@mail.com">
       
       <label>パスワード</label>
@@ -106,14 +116,14 @@
       <p style="margin-top: 15px;"><span id="to-signup" style="color: #1d9bf0; cursor: pointer;">アカウント新規登録はこちら</span></p>
     </div>
 
-    <!-- 見やすくなった新規登録 -->
+    <!-- 新規登録 -->
     <div id="signup-card" class="card" style="display: none;">
       <h2>新規アカウント作成</h2>
       
-      <label>表示名（本名やニックネームなど） <span style="color:#f4212e;">*必須</span></label>
+      <label>表示名（名前やニックネームなど） <span style="color:#f4212e;">*必須</span></label>
       <input type="text" id="signup-name" placeholder="例: たけい 太郎">
       
-      <label>ログインID（半角英数字、ログインやDMで使用） <span style="color:#f4212e;">*必須</span></label>
+      <label>ログインID（半角英数字、DMなどで使用） <span style="color:#f4212e;">*必須</span></label>
       <input type="text" id="signup-name-roman" placeholder="例: takei123">
       
       <label>メールアドレス <span style="color:#71767b;">（ない人は空欄でOK！）</span></label>
@@ -122,7 +132,7 @@
       <label>パスワード（6文字以上） <span style="color:#f4212e;">*必須</span></label>
       <input type="password" id="signup-password" placeholder="パスワードを入力">
       
-      <label>アイコン（設定しない場合は自動的に 🧪 になります）</label>
+      <label>アイコン（設定しない場合は 🧪 になります）</label>
       <input type="file" id="signup-avatar-file" accept="image/*" style="border-radius: 8px; border: 1px dashed #2f3336; padding: 8px; background: #000;">
       
       <button id="btn-signup">登録して始める</button>
@@ -132,7 +142,7 @@
 
   <!-- 📱 メインアプリ画面 -->
   <div id="app-container" style="display: none;">
-    <!-- 左サイドバー -->
+    <!-- 💻 PC用サイドバー -->
     <aside class="sidebar">
       <div id="current-user-avatar" class="avatar" style="width: 50px; height: 50px;">🧪</div>
       <nav>
@@ -143,10 +153,23 @@
       <button id="btn-logout">ログアウト</button>
     </aside>
 
+    <!-- 📱 スマホ用下部ナビゲーションバー（ボトムナビ） -->
+    <nav class="mobile-nav">
+      <button class="mobile-nav-btn active" id="m-nav-home">🏠<span>ホーム</span></button>
+      <button class="mobile-nav-btn" id="m-nav-notifications">
+        🔔<span>通知</span>
+        <span id="m-notif-badge" style="display: none; position: absolute; top: 5px; right: 25px; background: red; color: white; border-radius: 50%; padding: 1px 5px; font-size: 9px;">0</span>
+      </button>
+      <button class="mobile-nav-btn" id="m-nav-dms">💬<span>メッセージ</span></button>
+      <button class="mobile-nav-btn" id="m-nav-profile">👤<span>設定</span></button>
+    </nav>
+
     <!-- メインコンテンツ -->
     <main class="main-content">
       <header class="main-header">
         <h1 id="page-title">ホーム</h1>
+        <!-- スマホ時にヘッダーに表示されるプロフィールアバター -->
+        <div id="header-user-avatar" class="header-avatar">🧪</div>
       </header>
 
       <!-- 🏷️ カテゴリ選択タブ（スレッド） -->
@@ -183,17 +206,13 @@
 
       <!-- 💬 DM（ダイレクトメッセージ） -->
       <div id="dm-content" style="display: none;">
-        <!-- ID入力でチャットを開始するフォーム -->
         <div class="dm-start-form">
           <input type="text" id="dm-target-id-input" placeholder="相手のログインID（英数字）を入力">
           <button id="btn-start-chat">チャット開始</button>
         </div>
-        
-        <!-- チャット一覧 -->
         <div id="dm-users-list">
           <div id="dm-users-container"></div>
         </div>
-
         <!-- チャットウィンドウ -->
         <div id="dm-chat-window" style="display: none; flex-direction: column; height: calc(100vh - 180px);">
           <div style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #2f3336;">
@@ -210,7 +229,7 @@
     </main>
   </div>
 
-  <!-- 👥 プロフィールモーダル -->
+  <!-- 👥 プロフィール詳細モーダル -->
   <div id="user-details-modal" class="modal-backdrop" style="display: none;">
     <div class="modal">
       <div id="details-avatar" class="avatar" style="width: 70px; height: 70px; font-size: 30px; margin: 0 auto 15px;">🧪</div>
@@ -219,6 +238,7 @@
       <p id="details-bio" style="margin: 10px 0; text-align: center; font-size: 14px; line-height: 1.5;"></p>
       <p style="font-size: 12px; color: #71767b; text-align: center;">登録日: <span id="details-created-at"></span></p>
       <button id="btn-open-edit-from-details" style="display: none; background: #1d9bf0; color: white; margin-top: 15px;">プロフィールを編集</button>
+      <button id="btn-mobile-logout" style="display: none; background: none; border: 1px solid #f4212e; color: #f4212e; margin-top: 5px;">ログアウト</button>
       <div style="border-top: 1px solid #2f3336; margin-top: 20px; padding-top: 15px;">
         <h3 style="font-size: 16px; margin-bottom: 10px;">投稿一覧</h3>
         <div id="details-posts-list"></div>
@@ -227,7 +247,7 @@
     </div>
   </div>
 
-  <!-- 👥 プロフィール編集モーダル -->
+  <!-- 👤 プロフィール編集モーダル -->
   <div id="profile-modal" class="modal-backdrop" style="display: none;">
     <div class="modal">
       <h2>プロフィール編集</h2>
@@ -239,7 +259,7 @@
     </div>
   </div>
 
-  <!-- 💬 返信（スレッドモーダル） -->
+  <!-- 💬 返信モーダル -->
   <div id="reply-modal" class="modal-backdrop" style="display: none;">
     <div class="modal">
       <h3>返信する</h3>
