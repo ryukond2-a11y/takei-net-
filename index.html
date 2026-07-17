@@ -5,17 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>takei.net plus</title>
   <style>
-    /* 🎨 ここにCSSも内包させたので、別のCSSファイルがなくてもこれ一枚で綺麗になります！ */
+    /* 🎨 CSSデザイン */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background-color: #000; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     
     /* 認証ゲートウェイ */
     .card-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-    .card { background: #15181c; border-radius: 16px; padding: 30px; width: 100%; max-width: 400px; text-align: center; }
-    .card h2 { margin-bottom: 20px; font-size: 24px; }
-    .card input, .card button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 9999px; border: 1px solid #2f3336; background: #000; color: #fff; font-size: 16px; }
-    .card button { background: #e7e9ea; color: #000; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
+    .card { background: #15181c; border-radius: 16px; padding: 30px; width: 100%; max-width: 400px; text-align: left; box-shadow: 0 8px 24px rgba(255,255,255,0.05); }
+    .card h2 { margin-bottom: 20px; font-size: 24px; text-align: center; font-weight: bold; }
+    .card label { font-size: 13px; color: #71767b; display: block; margin-top: 12px; margin-bottom: 4px; font-weight: bold; }
+    .card input, .card button { width: 100%; padding: 12px; margin: 6px 0 12px 0; border-radius: 9999px; border: 1px solid #2f3336; background: #000; color: #fff; font-size: 15px; outline: none; }
+    .card input:focus { border-color: #1d9bf0; }
+    .card button { background: #e7e9ea; color: #000; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; margin-top: 15px; }
     .card button:hover { background: #d7dbdc; }
+    .card p { text-align: center; }
 
     /* メインレイアウト */
     #app-container { display: flex; min-height: 100vh; max-width: 1200px; margin: 0 auto; }
@@ -29,8 +32,14 @@
     
     /* メインコンテンツ */
     .main-content { flex: 1; max-width: 600px; border-right: 1px solid #2f3336; min-height: 100vh; padding-bottom: 100px; }
-    .main-header { position: sticky; top: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(12px); border-bottom: 1px solid #2f3336; padding: 15px; z-index: 10; }
+    .main-header { position: sticky; top: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid #2f3336; padding: 15px; z-index: 10; }
     .main-header h1 { font-size: 20px; font-weight: bold; }
+
+    /* 🏷️ カテゴリ選択タブ（スレッド切り替え） */
+    .category-tabs { display: flex; border-bottom: 1px solid #2f3336; background: #000; overflow-x: auto; }
+    .category-tab { flex: 1; text-align: center; padding: 15px 10px; cursor: pointer; font-size: 14px; font-weight: bold; color: #71767b; border-bottom: 3px solid transparent; transition: 0.2s; white-space: nowrap; }
+    .category-tab:hover { background: #16181c; color: #e7e9ea; }
+    .category-tab.active { color: #e7e9ea; border-bottom-color: #1d9bf0; }
 
     /* 投稿エリア */
     .tweet-box { padding: 15px; border-bottom: 1px solid #2f3336; display: flex; flex-direction: column; gap: 10px; }
@@ -42,8 +51,8 @@
     .post { display: flex; padding: 15px; border-bottom: 1px solid #2f3336; cursor: pointer; transition: 0.2s; }
     .post:hover { background: #080808; }
     .avatar { width: 40px; height: 40px; border-radius: 50%; background: #2f3336; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; cursor: pointer; background-size: cover; background-position: center; flex-shrink: 0; }
-    .post-body { flex: 1; margin-left: 12px; }
-    .post-header { display: flex; gap: 8px; font-size: 15px; margin-bottom: 4px; color: #71767b; }
+    .post-body { flex: 1; margin-left: 12px; min-width: 0; }
+    .post-header { display: flex; gap: 8px; font-size: 15px; margin-bottom: 4px; color: #71767b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .post-header .display-name { color: #f7f9fa; font-weight: bold; }
     .post-content { font-size: 15px; line-height: 1.5; color: #e7e9ea; word-break: break-all; }
     .post-actions { display: flex; gap: 40px; margin-top: 12px; color: #71767b; font-size: 13px; }
@@ -51,7 +60,8 @@
     .action-btn:hover { color: #1d9bf0; }
 
     /* 引用プレビュー */
-    .quoted-container { border: 1px solid #2f3336; border-radius: 12px; padding: 12px; margin-top: 8px; cursor: pointer; background: #000; }
+    .quoted-container { border: 1px solid #2f3336; border-radius: 12px; padding: 12px; margin-top: 8px; cursor: pointer; background: #050505; transition: 0.2s; }
+    .quoted-container:hover { border-color: #536471; background: #101010; }
 
     /* スレッド詳細 */
     #thread-detail-container { padding: 15px; }
@@ -64,13 +74,13 @@
     .modal textarea, .modal input[type="text"] { width: 100%; background: #15181c; border: 1px solid #2f3336; color: #fff; padding: 12px; border-radius: 8px; margin-bottom: 15px; resize: none; outline: none; }
     .modal button { width: 100%; padding: 12px; border-radius: 9999px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
 
-    /* DM 画面用スタイル */
+    /* DM 画面 */
     #dm-content { display: flex; flex-direction: column; height: 100%; min-height: calc(100vh - 60px); }
     .dm-start-form { padding: 15px; border-bottom: 1px solid #2f3336; display: flex; gap: 10px; }
     .dm-start-form input { flex: 1; background: #15181c; border: 1px solid #2f3336; color: #fff; padding: 10px 15px; border-radius: 9999px; outline: none; }
     .dm-start-form button { background: #1d9bf0; color: #fff; border: none; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer; }
     
-    /* モバイルレスポンシブ調整 */
+    /* モバイルレスポンシブ */
     @media (max-width: 700px) {
       .sidebar { width: 70px; padding: 10px 5px; align-items: center; }
       .sidebar button span:not(#notif-badge) { display: none; }
@@ -83,22 +93,40 @@
 
   <!-- 🔐 認証画面 -->
   <div id="auth-gateway" class="card-container" style="display: flex;">
+    <!-- ログイン -->
     <div id="login-card" class="card">
       <h2>ログイン</h2>
-      <input type="email" id="login-email" placeholder="メールアドレス">
-      <input type="password" id="login-password" placeholder="パスワード">
+      <label>ログインID (英数字) または メールアドレス</label>
+      <input type="text" id="login-identifier" placeholder="例: ryu123 または example@mail.com">
+      
+      <label>パスワード</label>
+      <input type="password" id="login-password" placeholder="パスワードを入力">
+      
       <button id="btn-login">ログイン</button>
-      <p style="margin-top: 15px;"><span id="to-signup" style="color: #1d9bf0; cursor: pointer;">新規登録はこちら</span></p>
+      <p style="margin-top: 15px;"><span id="to-signup" style="color: #1d9bf0; cursor: pointer;">アカウント新規登録はこちら</span></p>
     </div>
+
+    <!-- 見やすくなった新規登録 -->
     <div id="signup-card" class="card" style="display: none;">
-      <h2>新規登録</h2>
-      <input type="text" id="signup-name" placeholder="表示名">
-      <input type="text" id="signup-name-roman" placeholder="ログインID (英数字)">
-      <input type="email" id="signup-email" placeholder="メールアドレス">
-      <input type="password" id="signup-password" placeholder="パスワード">
-      <input type="file" id="signup-avatar-file" accept="image/*" style="border-radius: 0; border: none;">
-      <button id="btn-signup">登録する</button>
-      <p style="margin-top: 15px;"><span id="to-login" style="color: #1d9bf0; cursor: pointer;">ログインはこちら</span></p>
+      <h2>新規アカウント作成</h2>
+      
+      <label>表示名（本名やニックネームなど） <span style="color:#f4212e;">*必須</span></label>
+      <input type="text" id="signup-name" placeholder="例: たけい 太郎">
+      
+      <label>ログインID（半角英数字、ログインやDMで使用） <span style="color:#f4212e;">*必須</span></label>
+      <input type="text" id="signup-name-roman" placeholder="例: takei123">
+      
+      <label>メールアドレス <span style="color:#71767b;">（ない人は空欄でOK！）</span></label>
+      <input type="email" id="signup-email" placeholder="空欄なら自動で仮アドレスを作ります">
+      
+      <label>パスワード（6文字以上） <span style="color:#f4212e;">*必須</span></label>
+      <input type="password" id="signup-password" placeholder="パスワードを入力">
+      
+      <label>アイコン（設定しない場合は自動的に 🧪 になります）</label>
+      <input type="file" id="signup-avatar-file" accept="image/*" style="border-radius: 8px; border: 1px dashed #2f3336; padding: 8px; background: #000;">
+      
+      <button id="btn-signup">登録して始める</button>
+      <p style="margin-top: 15px;"><span id="to-login" style="color: #1d9bf0; cursor: pointer;">ログイン画面に戻る</span></p>
     </div>
   </div>
 
@@ -121,10 +149,18 @@
         <h1 id="page-title">ホーム</h1>
       </header>
 
+      <!-- 🏷️ カテゴリ選択タブ（スレッド） -->
+      <div id="category-tabs-container" class="category-tabs">
+        <div class="category-tab active" data-category="general">全体</div>
+        <div class="category-tab" data-category="takehaya">竹早中学校全体</div>
+        <div class="category-tab" data-category="nakajima">中島小学校</div>
+        <div class="category-tab" data-category="takehaya-1a">竹早中学校１年A組</div>
+      </div>
+
       <!-- 📝 投稿フォーム（ホーム用） -->
       <div id="global-tweet-box" class="tweet-box">
         <textarea id="post-input" placeholder="いまどうしてる？" rows="3"></textarea>
-        <div id="quote-preview" style="display: none; background: #15181c; padding: 10px; border-radius: 12px; position: relative; border: 1px solid #2f3336;">
+        <div id="quote-preview" style="display: none; background: #15181c; padding: 10px; border-radius: 12px; position: relative; border: 1px solid #2f3336; margin-bottom: 10px;">
           <span id="quote-preview-content" style="font-size: 13px; color: #71767b;"></span>
           <button id="close-quote-preview" style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #fff; font-size: 16px; cursor: pointer;">×</button>
         </div>
@@ -153,7 +189,7 @@
           <button id="btn-start-chat">チャット開始</button>
         </div>
         
-        <!-- チャット一覧（チャット履歴がある相手がここに自動で並びます） -->
+        <!-- チャット一覧 -->
         <div id="dm-users-list">
           <div id="dm-users-container"></div>
         </div>
