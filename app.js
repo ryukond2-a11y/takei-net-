@@ -520,28 +520,7 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null,
 
   await set(ref(db, `posts/${newPostKey}`), postData);
 
-  if (parentPostId) {
-    const parentRef = ref(db, `posts/${parentPostId}`);
-    await runTransaction(parentRef, (currentPost) => {
-      if (currentPost) {
-        currentPost.replyCount = (currentPost.replyCount || 0) + 1;
-        sendNotification(currentPost.senderId, "reply", user.uid, newPostKey);
-      }
-      return currentPost;
-    });
-  }
 
-  if (quotedPostId) {
-    const quoteRef = ref(db, `posts/${quotedPostId}`);
-    await runTransaction(quoteRef, (currentPost) => {
-      if (currentPost) {
-        currentPost.quoteCount = (currentPost.quoteCount || 0) + 1;
-        sendNotification(currentPost.senderId, "quote", user.uid, newPostKey);
-      }
-      return currentPost;
-    });
-  }
-}
 
   if (quotedPostId) {
     const quoteRef = ref(db, `posts/${quotedPostId}`);
