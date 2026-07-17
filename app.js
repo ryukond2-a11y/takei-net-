@@ -138,7 +138,7 @@ function showAuth() {
 }
 
 // --- 新規投稿の作成 ---
-async function createPost(content, replyToId = null, quotedPostId = null, quotedData = null) {
+async function createPost(content, replyToId = null, quotedPostId = null, quotedData = null, imageBase64 = null) {
   if (!currentUserData) return;
   try {
     const postsRef = ref(db, "posts");
@@ -154,7 +154,8 @@ async function createPost(content, replyToId = null, quotedPostId = null, quoted
       replyTo: replyToId, 
       quotedPostId: quotedPostId, 
       quotedData: quotedData, 
-      isMigrated: false
+      isMigrated: false,
+      image: imageBase64 || null // 画像データを格納（画像がない場合はnull）
     });
     
     closeQuotePreview();
@@ -229,6 +230,16 @@ function loadTimeline() {
         avatarText = post.senderIcon;
       }
 
+      // 画像が投稿されている場合のHTML要素を作成
+      let postImageHTML = "";
+      if (post.image && post.image.startsWith("data:image")) {
+        postImageHTML = `
+          <div class="post-attached-image-container" style="margin-top: 8px; border-radius: 8px; overflow: hidden; max-width: 100%;">
+            <img src="${post.image}" alt="投稿画像" style="max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid #2f3336;" />
+          </div>
+        `;
+      }
+
       let quoteHTML = "";
       if (post.quotedPostId && post.quotedData) {
         quoteHTML = `
@@ -255,6 +266,7 @@ function loadTimeline() {
               <span class="post-time" style="color: #71767b; font-size: 13px; margin-left: auto;">${formatDate(post.createdAt)}</span>
             </div>
             <div class="post-content">${post.content}</div>
+            ${postImageHTML}
             ${quoteHTML}
             <div class="post-actions">
               <div class="action-btn" id="reply-btn-${postId}">💬 返信</div>
@@ -404,7 +416,6 @@ function openDmChat(partnerUid, partnerData) {
 
   const msgContainer = document.getElementById("dm-messages");
   if (msgContainer) {
-    // メッセージが上下に綺麗に並び、かつ align-self が正しく効くように Flexbox の縦並びを強制設定
     msgContainer.style.display = "flex";
     msgContainer.style.flexDirection = "column";
     msgContainer.style.gap = "10px";
@@ -433,7 +444,6 @@ function openDmChat(partnerUid, partnerData) {
       bubble.className = `dm-bubble ${isMe ? 'sent' : 'received'}`;
       bubble.innerText = msg.text;
       
-      // ★送信元が自分の場合は右寄せ、相手の場合は左寄せにJSで直接位置を指定
       if (isMe) {
         bubble.style.alignSelf = "flex-end";
       } else {
@@ -512,7 +522,7 @@ async function sendDmMessage() {
 
   await set(newMsgRef, {
     senderId: currentUserData.uid,
-    receiverId: currentActiveDmPartnerUid, // 送信相手も明記
+    receiverId: currentActiveDmPartnerUid, 
     text: text,
     timestamp: Date.now()
   });
@@ -633,20 +643,32 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 投稿ボタン
-  safeAddListener("submit-post", "click", () => {
+  // 投稿ボタン（画像付き投稿のサポートを追加）
+  safeAddListener("submit-post", "click", async () => {
     const input = document.getElementById("post-input");
-    if (input && input.value.trim() !== "") {
+    const imageInput = document.getElementById("post-image-file"); // 画像用input要素
+
+    if (input && (input.value.trim() !== "" || (imageInput && imageInput.files[0]))) {
+      let finalImageUrl = null;
+      
+      // 画像ファイルが選択されている場合は圧縮してBase64にする
+      if (imageInput && imageInput.files[0]) {
+        finalImageUrl = await compressAndConvertToBase64(imageInput.files[0]);
+      }
+
       if (currentQuotedPost) {
-        createPost(input.value, null, currentQuotedPost.id, {
+        await createPost(input.value, null, currentQuotedPost.id, {
           senderName: currentQuotedPost.senderName,
           senderLoginId: currentQuotedPost.senderLoginId,
           content: currentQuotedPost.content
-        });
+        }, finalImageUrl);
       } else {
-        createPost(input.value);
+        await createPost(input.value, null, null, null, finalImageUrl);
       }
+
+      // 入力欄とファイルをクリア
       input.value = "";
+      if (imageInput) imageInput.value = "";
     }
   });
 
