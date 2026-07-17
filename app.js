@@ -26,42 +26,39 @@ const auth = getAuth(app);
 let currentUserData = null;
 let currentQuotedPost = null; 
 let currentReplyToId = null;  
-let currentViewMode = "home"; // "home", "replies", "dm"
+let currentViewMode = "home"; // "home", "replies", "dm", "channel"
 let currentThreadPostId = null; 
+let currentChannelId = "general"; // 選択中のチャンネル（初期値：全体）
 
 // DM用の状態
 let currentActiveDmPartnerUid = null;
-let dmMessagesListener = null; // リスナー解除用の保持
+let dmMessagesListener = null;
+
+// チャンネルリストの定義
+const CHANNELS = [
+  { id: "general", name: "🌐 全体タイムライン" },
+  { id: "class-1a", name: "🧪 1年A組スレッド" },
+  { id: "research", name: "🔬 開発・研究" }
+];
 
 // --- Firebaseエラーメッセージ日本語化ヘルパー ---
 function getFriendlyErrorMessage(errorCode) {
   if (!errorCode) return "エラーが発生しました。入力内容を確認してください。";
-  
   switch (errorCode) {
-    // 新規登録関連
     case "auth/weak-password":
       return "パスワードが短すぎます。6文字以上で設定してください。";
     case "auth/email-already-in-use":
       return "このメールアドレスはすでに登録されています。";
     case "auth/invalid-email":
       return "無効なメールアドレスの形式です。";
-    case "auth/operation-not-allowed":
-      return "この登録方法は現在許可されていません。";
-    
-    // ログイン関連
     case "auth/wrong-password":
       return "パスワードが間違っています。";
     case "auth/user-not-found":
       return "登録されていないメールアドレスです。";
     case "auth/invalid-credential":
       return "メールアドレス、またはパスワードが間違っています。";
-    case "auth/user-disabled":
-      return "このアカウントは無効化されています。";
-    case "auth/too-many-requests":
-      return "何度も失敗したため一時的にロックされています。少し時間を置いてからお試しください。";
-      
     default:
-      return `エラーが発生しました。入力内容を確認してください。(${errorCode})`;
+      return `エラーが発生しました。(${errorCode})`;
   }
 }
 
@@ -89,7 +86,6 @@ async function compressAndConvertToBase64(file) {
         const max_size = 120; 
         let width = img.width;
         let height = img.height;
-
         if (width > height) {
           if (width > max_size) {
             height *= max_size / width;
@@ -103,10 +99,8 @@ async function compressAndConvertToBase64(file) {
         }
         canvas.width = width;
         canvas.height = height;
-
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
-
         const compressedBase64 = canvas.toDataURL("image/jpeg", 0.4);
         resolve(compressedBase64);
       };
@@ -117,17 +111,87 @@ async function compressAndConvertToBase64(file) {
 // 安全にDOMの表示非表示を切り替えるヘルパー
 function setDisplay(id, displayStyle) {
   const el = document.getElementById(id);
-  if (el) {
-    el.style.display = displayStyle;
-  }
+  if (el) el.style.display = displayStyle;
 }
 
 // 安全にイベント登録を行うヘルパー
 function safeAddListener(id, event, callback) {
   const el = document.getElementById(id);
-  if (el) {
-    el.addEventListener(event, callback);
+  if (el) el.addEventListener(event, callback);
+}
+
+// --- スレッド（チャンネル）一覧をHTMLを壊さずにサイドバーに強制追加する関数 ---
+function injectChannelListUI() {
+  const sidebar = document.querySelector(".sidebar div");
+  if (!sidebar) return;
+
+  // 既に挿入済みの場合はスキップ
+  if (document.getElementById("channels-container")) {
+    renderChannelList();
+    return;
   }
+
+  // 「管理者専用ページへ」ボタンまたは最後の要素の直前にチャンネル切り替えコンテナを動的に挿入する
+  const container = document.createElement("div");
+  container.id = "channels-container";
+  container.style.marginTop = "15px";
+  container.style.borderTop = "1px solid #2f3336";
+  container.style.paddingTop = "10px";
+
+  const adminLink = document.getElementById("nav-admin");
+  if (adminLink) {
+    sidebar.insertBefore(container, adminLink);
+  } else {
+    sidebar.appendChild(container);
+  }
+
+  renderChannelList();
+}
+
+// スレッド（チャンネル）一覧を画面に描画する
+function renderChannelList() {
+  const container = document.getElementById("channels-container");
+  if (!container) return;
+
+  container.innerHTML = `<div style="font-size: 13px; color: #71767b; padding: 5px 12px; font-weight: bold;">スレッド</div>`;
+
+  CHANNELS.forEach((ch) => {
+    const item = document.createElement("div");
+    item.className = "nav-item";
+    item.style.fontSize = "16px";
+    item.style.padding = "8px 12px";
+    item.style.marginBottom = "4px";
+    item.innerText = ch.name;
+
+    // 現在選択中のチャンネルは背景を目立たせる
+    if (currentViewMode === "channel" && currentChannelId === ch.id) {
+      item.style.background = "#1c2025";
+      item.style.fontWeight = "bold";
+    }
+
+    item.addEventListener("click", () => {
+      switchChannel(ch.id);
+    });
+
+    container.appendChild(item);
+  });
+}
+
+function switchChannel(channelId) {
+  currentViewMode = "channel";
+  currentChannelId = channelId;
+  currentThreadPostId = null;
+  renderChannelList();
+  
+  // ホームボタンなどのアクティブ表示をリセット
+  const homeBtn = document.getElementById("nav-home");
+  if (homeBtn) homeBtn.style.background = "";
+  const dmBtn = document.getElementById("nav-dm");
+  if (dmBtn) dmBtn.style.background = "";
+
+  setDisplay("main-content", "block");
+  setDisplay("dm-content", "none");
+  loadTimeline();
 }
 
 // --- UI表示切り替え ---
@@ -135,7 +199,7 @@ function showApp(user, docData) {
   currentUserData = docData;
   setDisplay("auth-gateway", "none");
   setDisplay("app-container", "flex");
-  
+
   // アバター表示
   const avatarEl = document.getElementById("current-user-avatar");
   if (avatarEl) {
@@ -155,6 +219,9 @@ function showApp(user, docData) {
   } else {
     setDisplay("nav-admin", "none");
   }
+
+  // チャンネルリストをUIに埋め込む
+  injectChannelListUI();
 
   if (currentViewMode === "dm") {
     loadDmThreads();
@@ -187,9 +254,10 @@ async function createPost(content, replyToId = null, quotedPostId = null, quoted
       quotedPostId: quotedPostId, 
       quotedData: quotedData, 
       isMigrated: false,
-      image: imageBase64 || null
+      image: imageBase64 || null,
+      channelId: currentViewMode === "channel" ? currentChannelId : "general" // チャンネルを判別して格納
     });
-    
+
     closeQuotePreview();
   } catch (error) {
     console.error("投稿エラー:", error);
@@ -201,14 +269,14 @@ function loadTimeline() {
   const postsRef = ref(db, "posts");
 
   onValue(postsRef, (snapshot) => {
-    if (currentViewMode !== "home" && currentViewMode !== "replies") return; 
+    if (currentViewMode !== "home" && currentViewMode !== "replies" && currentViewMode !== "channel") return; 
 
     const timelineEl = document.getElementById("timeline");
     if (!timelineEl) return;
     timelineEl.innerHTML = ""; 
-    
+
     let rawData = snapshot.val();
-    
+
     if (!rawData || typeof rawData !== "object") {
       timelineEl.innerHTML = "<div style='text-align:center; padding: 20px; color:#71767b;'>投稿がまだありません。最初の投稿をしてみよう！</div>";
       return;
@@ -219,18 +287,29 @@ function loadTimeline() {
       ...rawData[key]
     })).sort((a, b) => b.createdAt - a.createdAt);
 
-    let filteredPosts = postsList;
+    let filteredPosts = [];
+
     if (currentViewMode === "home") {
-      filteredPosts = postsList.filter(p => !p.replyTo);
+      // ホーム（一般全体タイムライン、またはチャンネル未指定のもののみ）
+      filteredPosts = postsList.filter(p => !p.replyTo && (!p.channelId || p.channelId === "general"));
       const titleEl = document.getElementById("page-title");
-      if (titleEl) titleEl.innerText = "ホーム";
+      if (titleEl) titleEl.innerText = "ホーム (全体タイムライン)";
+      setDisplay("back-to-home-btn", "none");
+      setDisplay("global-tweet-box", "flex");
+    } else if (currentViewMode === "channel") {
+      // 特定のスレッド（チャンネル）宛ての通常投稿のみを表示
+      filteredPosts = postsList.filter(p => !p.replyTo && p.channelId === currentChannelId);
+      const titleEl = document.getElementById("page-title");
+      const activeCh = CHANNELS.find(c => c.id === currentChannelId);
+      if (titleEl && activeCh) titleEl.innerText = activeCh.name;
       setDisplay("back-to-home-btn", "none");
       setDisplay("global-tweet-box", "flex");
     } else if (currentViewMode === "replies" && currentThreadPostId) {
+      // 返信スレッド表示（親投稿とその返信のみ）
       const parentPost = postsList.find(p => p.id === currentThreadPostId);
       const replies = postsList.filter(p => p.replyTo === currentThreadPostId).reverse(); 
       filteredPosts = parentPost ? [parentPost, ...replies] : replies;
-      
+
       const titleEl = document.getElementById("page-title");
       if (titleEl) titleEl.innerText = "会話";
       setDisplay("back-to-home-btn", "block");
@@ -312,7 +391,7 @@ function loadTimeline() {
 
       timelineEl.appendChild(container);
 
-      // イベントリスナー登録
+      // イベントリスナー登録 (イベントバッティング防止用 e.stopPropagation)
       document.getElementById(`body-${postId}`)?.addEventListener("click", () => {
         viewThread(postId);
       });
@@ -323,7 +402,7 @@ function loadTimeline() {
       });
 
       document.getElementById(`reply-btn-${postId}`)?.addEventListener("click", (e) => {
-        e.stopPropagation(); 
+        e.stopPropagation(); // タイムラインを開く処理とバッティングするのを防止！
         openReplyModal(postId, post);
       });
 
@@ -375,12 +454,26 @@ window.viewThread = function(postId) {
 function switchView(mode) {
   currentViewMode = mode;
   if (mode === "home" || mode === "replies") {
+    // アクティブ表示の切り替え
+    const homeBtn = document.getElementById("nav-home");
+    if (homeBtn) homeBtn.style.background = "#181818";
+    const dmBtn = document.getElementById("nav-dm");
+    if (dmBtn) dmBtn.style.background = "";
+
     setDisplay("main-content", "block");
     setDisplay("dm-content", "none");
+    renderChannelList(); // チャンネル側のアクティブ背景を外す
     loadTimeline();
   } else if (mode === "dm") {
+    // アクティブ表示の切り替え
+    const homeBtn = document.getElementById("nav-home");
+    if (homeBtn) homeBtn.style.background = "";
+    const dmBtn = document.getElementById("nav-dm");
+    if (dmBtn) dmBtn.style.background = "#181818";
+
     setDisplay("main-content", "none");
     setDisplay("dm-content", "flex");
+    renderChannelList(); // チャンネル側のアクティブ背景を外す
     loadDmThreads();
   }
 }
@@ -393,7 +486,7 @@ function loadDmThreads() {
     const listEl = document.getElementById("dm-thread-list");
     if (!listEl) return;
     listEl.innerHTML = "";
-    
+
     const threads = snapshot.val();
     if (!threads || typeof threads !== "object") {
       listEl.innerHTML = "<div style='color: #71767b; font-size: 13px; text-align: center; margin-top: 10px;'>スレッドがありません。上の検索からDMを開始してね！</div>";
@@ -433,7 +526,7 @@ function loadDmThreads() {
 // チャット画面を開く
 function openDmChat(partnerUid, partnerData) {
   currentActiveDmPartnerUid = partnerUid;
-  
+
   // UI更新
   const headerEl = document.getElementById("dm-chat-header");
   if (headerEl) {
@@ -451,11 +544,6 @@ function openDmChat(partnerUid, partnerData) {
     msgContainer.style.flexDirection = "column";
     msgContainer.style.gap = "10px";
   }
-  
-  // 以前のリスナーの解除
-  if (dmMessagesListener) {
-    // FirebaseのonValueは新しく購読した際に自動的にバインドされます
-  }
 
   dmMessagesListener = onValue(messagesRef, (snapshot) => {
     if (!msgContainer) return;
@@ -471,16 +559,16 @@ function openDmChat(partnerUid, partnerData) {
     msgs.forEach((msg) => {
       const bubble = document.createElement("div");
       const isMe = msg.senderId === currentUserData.uid;
-      
+
       bubble.className = `dm-bubble ${isMe ? 'sent' : 'received'}`;
       bubble.innerText = msg.text;
-      
+
       if (isMe) {
         bubble.style.alignSelf = "flex-end";
       } else {
         bubble.style.alignSelf = "flex-start";
       }
-      
+
       msgContainer.appendChild(bubble);
     });
 
@@ -500,7 +588,6 @@ async function searchAndStartDm() {
     return alert("自分自身とDMすることはできないよ！");
   }
 
-  // ユーザー一覧からIDが一致する人を探す
   const usersRef = ref(db, "users");
   onValue(usersRef, async (snapshot) => {
     const users = snapshot.val();
@@ -514,7 +601,6 @@ async function searchAndStartDm() {
     });
 
     if (foundUser) {
-      // お互いの dmThreads フォルダにスレッド情報を記録する
       const myRef = ref(db, `users/${currentUserData.uid}/dmThreads/${foundUser.uid}`);
       const partnerRef = ref(db, `users/${foundUser.uid}/dmThreads/${currentUserData.uid}`);
 
@@ -563,7 +649,7 @@ async function sendDmMessage() {
 
 // --- DOMツリー読み込み完了後の初期化 ---
 window.addEventListener("DOMContentLoaded", () => {
-  
+
   // 1. ユーザー認証状態の監視
   onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -630,7 +716,6 @@ window.addEventListener("DOMContentLoaded", () => {
       await set(ref(db, `users/${user.uid}`), userData);
       alert(`登録完了！ID: @${generatedId}`);
     } catch (error) {
-      // error.code が存在することを確認し、なければオブジェクト全体を確認
       const errCode = error && error.code ? error.code : "";
       const friendlyMessage = getFriendlyErrorMessage(errCode);
       alert("登録失敗: " + friendlyMessage);
@@ -668,7 +753,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // DM機能ボタン
   safeAddListener("btn-start-dm-search", "click", searchAndStartDm);
   safeAddListener("btn-send-dm", "click", sendDmMessage);
-  
+
   // DM入力フィールドでのEnterキー送信
   const dmMsgInput = document.getElementById("dm-message-input");
   if (dmMsgInput) {
@@ -686,7 +771,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     if (input && (input.value.trim() !== "" || (imageInput && imageInput.files[0]))) {
       let finalImageUrl = null;
-      
+
       if (imageInput && imageInput.files[0]) {
         finalImageUrl = await compressAndConvertToBase64(imageInput.files[0]);
       }
@@ -710,15 +795,21 @@ window.addEventListener("DOMContentLoaded", () => {
   safeAddListener("close-quote-preview", "click", closeQuotePreview);
   safeAddListener("close-reply-modal", "click", () => { setDisplay("reply-modal", "none"); });
   safeAddListener("back-to-home-btn", "click", () => {
-    currentViewMode = "home";
+    // もしスレッド表示から戻るとき、以前見ていたビューがチャンネルならチャンネル表示に戻す
+    if (currentChannelId && currentChannelId !== "general") {
+      currentViewMode = "channel";
+    } else {
+      currentViewMode = "home";
+    }
     currentThreadPostId = null;
     loadTimeline();
   });
 
-  safeAddListener("submit-reply", "click", () => {
+  // 返信送信ボタン
+  safeAddListener("submit-reply", "click", async () => {
     const replyInput = document.getElementById("reply-input");
     if (replyInput && replyInput.value.trim() !== "") {
-      createPost(replyInput.value, currentReplyToId);
+      await createPost(replyInput.value, currentReplyToId);
       replyInput.value = "";
       setDisplay("reply-modal", "none");
     }
@@ -766,7 +857,7 @@ window.addEventListener("DOMContentLoaded", () => {
       };
 
       await update(ref(db), updates);
-      
+
       currentUserData.displayName = newName;
       currentUserData.photoURL = finalPhotoUrl;
 
