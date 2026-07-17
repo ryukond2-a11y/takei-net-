@@ -28,8 +28,9 @@ let currentQuoteTargetId = null;
 let currentReplyTargetId = null; 
 let activeDmChatPartnerId = null; 
 let currentCategory = "general"; 
-let usersMap = {}; // UIDからユーザー情報を引き出すためのローカルキャッシュ
-let currentDmLimitCount = 0; // 新着DM判定用カウンタ
+let usersMap = {}; // 全ユーザーのUIDから表示名、LoginIdを逆引きするためのキャッシュ
+let firstDmLoadFinished = false;
+let previousDmCount = 0;
 
 // 表示切り替えユーティリティ
 function setDisplay(id, val) {
@@ -118,7 +119,7 @@ if (btnSignup) {
         email: email,
         photoURL: photoURL,
         bio: "よろしくお願いします！", 
-        status: "active", // 凍結管理用デフォルトステータス
+        status: "active", // 初期状態はアクティブ
         createdAt: Date.now()
       });
 
@@ -142,8 +143,8 @@ if (btnLogin) {
 
     let targetEmail = identifier;
 
-    if (!identifier.includes("@")) {
-      try {
+    try {
+      if (!identifier.includes("@")) {
         const usersRef = ref(db, "users");
         const snapshot = await get(usersRef);
         if (snapshot.exists()) {
@@ -161,12 +162,8 @@ if (btnLogin) {
             return;
           }
         }
-      } catch (e) {
-        console.error("ログイン時ユーザー検索失敗:", e);
       }
-    }
 
-    try {
       await signInWithEmailAndPassword(auth, targetEmail, password);
     } catch (e) {
       alert("ログイン失敗: " + e.message);
@@ -190,29 +187,36 @@ if (btnMobileLogout) {
   });
 }
 
-// ユーザーセッションと凍結（Frozen）状態の常時監視
+// ユーザー監視と凍結リアルタイム強制検知
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    // ユーザー情報のキャッシュ構築とアカウント凍結の監視
-    onValue(ref(db, `users/${user.uid}`), (snap) => {
-      const data = snap.val();
-      if (data) {
-        // アカウント凍結（Frozen）の即時判定処理
-        if (data.status === "frozen") {
-          alert("このアカウントは凍結されているため利用できません。");
-          signOut(auth).then(() => {
-            location.reload();
-          });
-          return;
-        }
+    // 1. まずユーザーの凍結ステータスをリアルタイムに監視
+    const userStatusRef = ref(db, `users/${user.uid}/status`);
+    onValue(userStatusRef, (snap) => {
+      const status = snap.val();
+      if (status === "frozen") {
+        alert("⚠️ このアカウントは管理者により凍結されました。システムを利用できません。");
+        signOut(auth).then(() => {
+          location.reload();
+        });
+      }
+    });
 
+    setDisplay("auth-gateway", "none");
+    setDisplay("app-container", "flex");
+    
+    // ユーザー情報のマッピング情報の読み込み＆ヘッダー同期
+    onValue(ref(db, "users"), (snapshot) => {
+      usersMap = snapshot.val() || {};
+      const myData = usersMap[user.uid];
+      if (myData) {
         const updateAvatar = (el) => {
           if (!el) return;
-          if (data.photoURL && data.photoURL.startsWith("data:image")) {
+          if (myData.photoURL && myData.photoURL.startsWith("data:image")) {
             el.innerText = "";
-            el.style.backgroundImage = `url(${data.photoURL})`;
+            el.style.backgroundImage = `url(${myData.photoURL})`;
           } else {
-            el.innerText = data.photoURL || "🧪";
+            el.innerText = myData.photoURL || "🧪";
             el.style.backgroundImage = "none";
           }
         };
@@ -221,14 +225,10 @@ onAuthStateChanged(auth, (user) => {
       }
     });
 
-    // キャッシュ作成のための全体ユーザーデータ監視
-    onValue(ref(db, "users"), (snapshot) => {
-      usersMap = snapshot.val() || {};
-      loadUnifiedTimeline();
-      loadDmUserList();
-      monitorNewDmMessages(); // DMリアルタイムバッジ監視の起動
-    });
-
+    loadUnifiedTimeline();
+    initNotificationObserver();
+    loadDmUserList(); 
+    observeNewDmMessages(user.uid); // 新着DM通知の監視開始
   } else {
     setDisplay("app-container", "none");
     setDisplay("auth-gateway", "flex");
@@ -248,7 +248,7 @@ tabElements.forEach(tab => {
 });
 
 
-// --- 📱 タイムライン表示 ＆ 引用機能・いいね制限 ---
+// --- 📱 タイムライン表示 ---
 function loadUnifiedTimeline() {
   const postsRef = ref(db, "posts");
   onValue(postsRef, (snapshot) => {
@@ -285,188 +285,168 @@ function renderPost(post, isThreadDetail = false) {
   postElement.dataset.id = post.id;
 
   const myUid = auth.currentUser ? auth.currentUser.uid : "";
-  const uData = usersMap[post.senderId] || {};
-  
-  const displayName = uData.displayName || "名無し";
-  const userLoginId = uData.userLoginId || "unknown";
-  const photoURL = uData.photoURL || "🧪";
 
-  let avatarStyle = "";
-  let avatarText = "";
-  if (photoURL.startsWith("data:image")) {
-    avatarStyle = `background-image: url(${photoURL})`;
-  } else {
-    avatarText = photoURL;
-  }
+  // ユーザー情報を安全に取得
+  const userRef = ref(db, `users/${post.senderId}`);
+  onValue(userRef, (userSnap) => {
+    const uData = userSnap.val() || {};
+    const displayName = uData.displayName || "名無し";
+    const userLoginId = uData.userLoginId || "unknown";
+    const photoURL = uData.photoURL || "🧪";
 
-  const replyCount = post.replyCount || 0;
-  const quoteCount = post.quoteCount || 0;
-  const likeCount = post.likeCount || 0;
+    let avatarStyle = "";
+    let avatarText = "";
+    if (photoURL && photoURL.startsWith("data:image")) {
+      avatarStyle = `background-image: url(${photoURL})`;
+    } else {
+      avatarText = photoURL || "🧪";
+    }
 
-  let quotedHTML = "";
-  if (post.quotedPostId) {
-    quotedHTML = `
-      <div class="quoted-container" id="quote-preview-box-${post.id}">
-        <div id="quote-content-area-${post.id}" style="font-size: 13px; color: #71767b;">
-          引用元を読み込み中...
+    const replyCount = post.replyCount || 0;
+    const quoteCount = post.quoteCount || 0;
+    const likeCount = post.likeCount || 0;
+
+    let quotedHTML = "";
+    if (post.quotedPostId) {
+      quotedHTML = `
+        <div class="quoted-container" id="quote-preview-box-${post.id}">
+          <div id="quote-content-area-${post.id}" style="font-size: 13px; color: #71767b;">
+            引用元を読み込み中...
+          </div>
         </div>
-      </div>
-    `;
-  }
+      `;
+    }
 
-  postElement.innerHTML = `
-    <div style="flex-shrink:0;">
-      <div id="avatar-${post.id}" class="avatar" style="${avatarStyle}">${avatarText}</div>
-    </div>
-    <div class="post-body">
-      <div class="post-header" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-        <div>
+    postElement.innerHTML = `
+      <div style="flex-shrink:0;">
+        <div id="avatar-${post.id}" class="avatar" style="${avatarStyle}">${avatarText}</div>
+      </div>
+      <div class="post-body">
+        <div class="post-header">
           <span class="display-name">${displayName}</span>
           <span>@${userLoginId}</span>
           <span>·</span>
           <span>${formatDate(post.createdAt)}</span>
         </div>
-        <!-- フォローボタンの動的埋め込み -->
-        <div id="follow-btn-container-${post.id}-${post.senderId}"></div>
+        <div class="post-content">${post.content}</div>
+        ${quotedHTML}
+        <div class="post-actions">
+          <div class="action-btn" id="action-reply-${post.id}">💬 <span>${replyCount}</span></div>
+          <div class="action-btn" id="action-quote-${post.id}">🔄 <span>${quoteCount}</span></div>
+          <div class="action-btn" id="action-like-${post.id}">❤️ <span id="like-count-num-${post.id}">${likeCount}</span></div>
+        </div>
       </div>
-      <div class="post-content">${post.content}</div>
-      ${quotedHTML}
-      <div class="post-actions">
-        <div class="action-btn" id="action-reply-${post.id}">💬 <span>${replyCount}</span></div>
-        <div class="action-btn" id="action-quote-${post.id}">🔄 <span>${quoteCount}</span></div>
-        <div class="action-btn" id="action-like-${post.id}">❤️ <span id="like-count-num-${post.id}">${likeCount}</span></div>
-      </div>
-    </div>
-  `;
+    `;
 
-  // フォロー・フォロー解除ボタンのリアルタイムレンダリング
-  if (myUid && post.senderId !== myUid) {
-    const followContainer = postElement.querySelector(`#follow-btn-container-${post.id}-${post.senderId}`);
-    if (followContainer) {
-      const followStateRef = ref(db, `follows/${myUid}/${post.senderId}`);
-      onValue(followStateRef, (snap) => {
-        if (snap.exists()) {
-          followContainer.innerHTML = `<button class="unfollow-btn" style="background:#334155; color:#fff; border:none; border-radius:12px; padding:4px 8px; font-size:11px; cursor:pointer;">フォロー中</button>`;
-          followContainer.querySelector("button").onclick = (e) => {
-            e.stopPropagation();
-            unfollowUser(myUid, post.senderId);
-          };
+    // アバタータップ（プロフィール表示）
+    const avatarBtn = postElement.querySelector(`#avatar-${post.id}`);
+    if (avatarBtn) {
+      avatarBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showUserProfile(post.senderId);
+      });
+    }
+
+    // 返信ボタン
+    const replyBtn = postElement.querySelector(`#action-reply-${post.id}`);
+    if (replyBtn) {
+      replyBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        currentReplyTargetId = post.id;
+        const targetContentEl = document.getElementById("reply-target-post-content");
+        if (targetContentEl) {
+          targetContentEl.innerText = `"${displayName}: ${post.content}"`;
+        }
+        setDisplay("reply-modal", "flex");
+      });
+    }
+
+    // 引用ボタン
+    const quoteBtn = postElement.querySelector(`#action-quote-${post.id}`);
+    if (quoteBtn) {
+      quoteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        currentQuoteTargetId = post.id;
+        const previewContentEl = document.getElementById("quote-preview-content");
+        if (previewContentEl) {
+          previewContentEl.innerText = `引用元: @${userLoginId}の投稿`;
+        }
+        setDisplay("quote-preview", "block");
+        const postInput = document.getElementById("post-input");
+        if (postInput) postInput.focus();
+      });
+    }
+
+    // ❤️ いいねボタン
+    const likeBtn = postElement.querySelector(`#action-like-${post.id}`);
+    if (likeBtn && myUid) {
+      const userLikeRef = ref(db, `likes/${post.id}/${myUid}`);
+      
+      onValue(userLikeRef, (likeSnap) => {
+        if (likeSnap.exists()) {
+          likeBtn.classList.add("liked");
         } else {
-          followContainer.innerHTML = `<button class="follow-btn" style="background:#1d9bf0; color:#fff; border:none; border-radius:12px; padding:4px 8px; font-size:11px; cursor:pointer;">フォロー</button>`;
-          followContainer.querySelector("button").onclick = (e) => {
-            e.stopPropagation();
-            followUser(myUid, post.senderId);
-          };
+          likeBtn.classList.remove("liked");
+        }
+      });
+
+      likeBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const likeCheck = await get(userLikeRef);
+        const postRef = ref(db, `posts/${post.id}`);
+
+        if (likeCheck.exists()) {
+          await remove(userLikeRef);
+          await runTransaction(postRef, (currentPost) => {
+            if (currentPost) {
+              currentPost.likeCount = Math.max(0, (currentPost.likeCount || 0) - 1);
+            }
+            return currentPost;
+          });
+        } else {
+          await set(userLikeRef, true);
+          await runTransaction(postRef, (currentPost) => {
+            if (currentPost) {
+              currentPost.likeCount = (currentPost.likeCount || 0) + 1;
+              sendNotification(currentPost.senderId, "like", myUid, post.id);
+            }
+            return currentPost;
+          });
         }
       });
     }
-  }
 
-  // アバタータップ
-  const avatarBtn = postElement.querySelector(`#avatar-${post.id}`);
-  if (avatarBtn) {
-    avatarBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      showUserProfile(post.senderId);
-    });
-  }
+    // 🔗 引用元の実体読み込み処理
+    if (post.quotedPostId) {
+      const quoteRef = ref(db, `posts/${post.quotedPostId}`);
+      onValue(quoteRef, (quoteSnap) => {
+        const quotedPost = quoteSnap.val();
+        const box = document.getElementById(`quote-preview-box-${post.id}`);
+        const contentArea = document.getElementById(`quote-content-area-${post.id}`);
+        
+        if (!box || !contentArea) return;
+        if (!quotedPost) {
+          contentArea.innerText = "⚠️ この投稿は削除されました。";
+          return;
+        }
 
-  // 返信ボタン
-  const replyBtn = postElement.querySelector(`#action-reply-${post.id}`);
-  if (replyBtn) {
-    replyBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      currentReplyTargetId = post.id;
-      const targetContentEl = document.getElementById("reply-target-post-content");
-      if (targetContentEl) {
-        targetContentEl.innerText = `"${displayName}: ${post.content}"`;
-      }
-      setDisplay("reply-modal", "flex");
-    });
-  }
+        onValue(ref(db, `users/${quotedPost.senderId}`), (qUserSnap) => {
+          const quData = qUserSnap.val() || {};
+          contentArea.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px; color: #fff; font-size: 13px;">
+              ${quData.displayName || "名無し"} <span style="font-weight: normal; color: #71767b; font-size: 11px;">@${quData.userLoginId || "unknown"}</span>
+            </div>
+            <div style="font-size: 13px; color: #e7e9ea;">${quotedPost.content}</div>
+          `;
+        }, { onlyOnce: true });
 
-  // 引用ボタン
-  const quoteBtn = postElement.querySelector(`#action-quote-${post.id}`);
-  if (quoteBtn) {
-    quoteBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      currentQuoteTargetId = post.id;
-      const previewContentEl = document.getElementById("quote-preview-content");
-      if (previewContentEl) {
-        previewContentEl.innerText = `引用元: @${userLoginId}の投稿`;
-      }
-      setDisplay("quote-preview", "block");
-      const postInput = document.getElementById("post-input");
-      if (postInput) postInput.focus();
-    });
-  }
-
-  // ❤️ いいねボタン（トグル制御）
-  const likeBtn = postElement.querySelector(`#action-like-${post.id}`);
-  if (likeBtn && myUid) {
-    const userLikeRef = ref(db, `likes/${post.id}/${myUid}`);
-    onValue(userLikeRef, (likeSnap) => {
-      if (likeSnap.exists()) {
-        likeBtn.classList.add("liked");
-      } else {
-        likeBtn.classList.remove("liked");
-      }
-    });
-
-    likeBtn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const likeCheck = await get(userLikeRef);
-      const postRef = ref(db, `posts/${post.id}`);
-
-      if (likeCheck.exists()) {
-        await remove(userLikeRef);
-        await runTransaction(postRef, (currentPost) => {
-          if (currentPost) {
-            currentPost.likeCount = Math.max(0, (currentPost.likeCount || 0) - 1);
-          }
-          return currentPost;
-        });
-      } else {
-        await set(userLikeRef, true);
-        await runTransaction(postRef, (currentPost) => {
-          if (currentPost) {
-            currentPost.likeCount = (currentPost.likeCount || 0) + 1;
-            sendNotification(currentPost.senderId, "like", myUid, post.id);
-          }
-          return currentPost;
-        });
-      }
-    });
-  }
-
-  // 🔗 引用元の実体読み込み
-  if (post.quotedPostId) {
-    const quoteRef = ref(db, `posts/${post.quotedPostId}`);
-    onValue(quoteRef, (quoteSnap) => {
-      const quotedPost = quoteSnap.val();
-      const box = document.getElementById(`quote-preview-box-${post.id}`);
-      const contentArea = document.getElementById(`quote-content-area-${post.id}`);
-      
-      if (!box || !contentArea) return;
-      if (!quotedPost) {
-        contentArea.innerText = "⚠️ この投稿は削除されました。";
-        return;
-      }
-
-      const quData = usersMap[quotedPost.senderId] || {};
-      contentArea.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 4px; color: #fff; font-size: 13px;">
-          ${quData.displayName || "名無し"} <span style="font-weight: normal; color: #71767b; font-size: 11px;">@${quData.userLoginId || "unknown"}</span>
-        </div>
-        <div style="font-size: 13px; color: #e7e9ea;">${quotedPost.content}</div>
-      `;
-
-      box.onclick = (e) => {
-        e.stopPropagation();
-        openPostThreadDetail(quotedPost);
-      };
-    });
-  }
+        box.onclick = (e) => {
+          e.stopPropagation();
+          openPostThreadDetail(quotedPost);
+        };
+      });
+    }
+  }, { onlyOnce: true });
 
   if (!isThreadDetail) {
     postElement.addEventListener("click", () => {
@@ -475,21 +455,6 @@ function renderPost(post, isThreadDetail = false) {
   }
 
   return postElement;
-}
-
-
-// --- 👥 フォロー/フォロワーのデータベース制御関数 ---
-function followUser(myUid, targetUid) {
-  if (myUid === targetUid) return;
-  set(ref(db, `follows/${myUid}/${targetUid}`), true)
-    .then(() => console.log("フォロー完了"))
-    .catch(err => console.error("フォローエラー:", err));
-}
-
-function unfollowUser(myUid, targetUid) {
-  remove(ref(db, `follows/${myUid}/${targetUid}`))
-    .then(() => console.log("フォロー解除完了"))
-    .catch(err => console.error("フォロー解除エラー:", err));
 }
 
 
@@ -630,41 +595,84 @@ if (submitReplyBtn) {
 }
 
 
-// --- 📬 DM監視 ＆ 通知バッジ機能 ---
-function monitorNewDmMessages() {
+// --- 👥 プロフィールモーダル ＆ フォロー機能の実装 ---
+function showUserProfile(targetUid) {
   const myUid = auth.currentUser ? auth.currentUser.uid : "";
-  if (!myUid) return;
+  setDisplay("profile-modal", "flex");
 
-  const dmsRef = ref(db, "direct_messages");
-  onValue(dmsRef, (snapshot) => {
-    const rooms = snapshot.val();
-    let messageCount = 0;
+  const nameEl = document.getElementById("profile-display-name");
+  const loginIdEl = document.getElementById("profile-login-id");
+  const bioEl = document.getElementById("profile-bio");
+  const avatarEl = document.getElementById("profile-avatar");
+  const followBtn = document.getElementById("btn-toggle-follow");
 
-    if (rooms) {
-      Object.keys(rooms).forEach(roomKey => {
-        if (roomKey.includes(myUid)) {
-          const thread = rooms[roomKey];
-          if (thread && typeof thread === 'object') {
-            Object.keys(thread).forEach(msgId => {
-              // 自分以外のメッセージで、かつ新着のもののみカウント
-              if (thread[msgId].senderId !== myUid) {
-                messageCount++;
-              }
-            });
-          }
-        }
-      });
-    }
+  // モーダル要素の初期化
+  if (nameEl) nameEl.innerText = "読み込み中...";
+  if (loginIdEl) loginIdEl.innerText = "";
+  if (bioEl) bioEl.innerText = "";
+  if (avatarEl) {
+    avatarEl.style.backgroundImage = "none";
+    avatarEl.innerText = "🧪";
+  }
+  if (followBtn) followBtn.style.display = "none";
 
-    // メッセージの増減をチェック
-    const dmBadge = document.getElementById("dm-nav-badge"); // HTML上の通知用の赤丸要素
-    if (currentDmLimitCount !== 0 && messageCount > currentDmLimitCount) {
-      if (dmBadge) {
-        dmBadge.style.display = "inline-block"; // 赤丸を点灯
-        dmBadge.style.backgroundColor = "#ef4444";
+  // ユーザーデータを取得
+  onValue(ref(db, `users/${targetUid}`), (snapshot) => {
+    const uData = snapshot.val();
+    if (!uData) return;
+
+    if (nameEl) nameEl.innerText = uData.displayName || "名無し";
+    if (loginIdEl) loginIdEl.innerText = `@${uData.userLoginId || "unknown"}`;
+    if (bioEl) bioEl.innerText = uData.bio || "よろしくお願いします！";
+    if (avatarEl) {
+      if (uData.photoURL && uData.photoURL.startsWith("data:image")) {
+        avatarEl.innerText = "";
+        avatarEl.style.backgroundImage = `url(${uData.photoURL})`;
+      } else {
+        avatarEl.innerText = uData.photoURL || "🧪";
+        avatarEl.style.backgroundImage = "none";
       }
     }
-    currentDmLimitCount = messageCount;
+
+    // 自分以外のアカウントであれば、フォローボタンを表示・バインド
+    if (myUid && myUid !== targetUid && followBtn) {
+      followBtn.style.display = "block";
+
+      // フォロー状態をリアルタイム監視してボタンを切り替える
+      const followRef = ref(db, `follows/${myUid}/${targetUid}`);
+      onValue(followRef, (fSnap) => {
+        if (fSnap.exists()) {
+          followBtn.innerText = "フォロー解除";
+          followBtn.className = "follow-btn unfollow";
+        } else {
+          followBtn.innerText = "フォローする";
+          followBtn.className = "follow-btn";
+        }
+      });
+
+      // フォローボタンクリック時のイベントリスナー付け直し（重複防止）
+      followBtn.onclick = async () => {
+        const followCheck = await get(followRef);
+        if (followCheck.exists()) {
+          // フォロー解除
+          await remove(followRef);
+          console.log("フォローを解除しました");
+        } else {
+          // フォロー実行
+          await set(followRef, true);
+          sendNotification(targetUid, "follow", myUid, null); // 通知を送る
+          console.log("フォローしました");
+        }
+      };
+    }
+  }, { onlyOnce: true });
+}
+
+// プロフィールモーダルの「閉じる」処理
+const closeProfileBtn = document.getElementById("close-profile-modal");
+if (closeProfileBtn) {
+  closeProfileBtn.addEventListener("click", () => {
+    setDisplay("profile-modal", "none");
   });
 }
 
@@ -683,11 +691,17 @@ if (btnStartChat) {
 
     if (!auth.currentUser) return;
 
+    const usersRef = ref(db, "users");
+    const snapshot = await get(usersRef);
+    const users = snapshot.val();
+    
     let foundPartner = null;
-    for (const uid in usersMap) {
-      if (usersMap[uid].userLoginId === rawTargetId) {
-        foundPartner = usersMap[uid];
-        break;
+    if (users) {
+      for (const uid in users) {
+        if (users[uid].userLoginId === rawTargetId) {
+          foundPartner = users[uid];
+          break;
+        }
       }
     }
 
@@ -704,6 +718,7 @@ if (btnStartChat) {
   });
 }
 
+// DMユーザーリストのリアルタイム表示
 function loadDmUserList() {
   const directMsgsRef = ref(db, "direct_messages");
   onValue(directMsgsRef, (snapshot) => {
@@ -724,7 +739,9 @@ function loadDmUserList() {
       if (roomKey.includes(myUid)) {
         const uids = roomKey.split("_");
         const partnerUid = uids.find(id => id !== myUid);
-        if (partnerUid) activePartnerUids.add(partnerUid);
+        if (partnerUid) {
+          activePartnerUids.add(partnerUid);
+        }
       }
     });
 
@@ -734,19 +751,278 @@ function loadDmUserList() {
     }
 
     activePartnerUids.forEach(pUid => {
-      const pData = usersMap[pUid] || { displayName: "不明なユーザー", userLoginId: "unknown", photoURL: "🧪" };
-      const div = document.createElement("div");
-      div.className = "dm-user-item";
-      div.style = "padding:12px; border-bottom:1px solid #2f3e56; cursor:pointer; font-weight:bold;";
-      div.innerText = `${pData.displayName} (@${pData.userLoginId})`;
-      
-      div.onclick = () => {
-        // DMタブを開いたら通知バッジを消す
-        const dmBadge = document.getElementById("dm-nav-badge");
-        if (dmBadge) dmBadge.style.display = "none";
-        openDmChatWith(pUid, pData.displayName);
-      };
-      container.appendChild(div);
+      onValue(ref(db, `users/${pUid}`), (uSnap) => {
+        const pData = uSnap.val() || {};
+        const displayName = pData.displayName || "名無し";
+        const loginId = pData.userLoginId || "unknown";
+        const avatar = pData.photoURL || "🧪";
+
+        const userRow = document.createElement("div");
+        userRow.className = "dm-user-row";
+        
+        let avatarStyle = "";
+        let avatarText = "";
+        if (avatar.startsWith("data:image")) {
+          avatarStyle = `background-image: url(${avatar})`;
+        } else {
+          avatarText = avatar;
+        }
+
+        userRow.innerHTML = `
+          <div class="avatar" style="${avatarStyle}; flex-shrink:0;">${avatarText}</div>
+          <div style="margin-left: 10px;">
+            <div style="font-weight: bold; color: #fff;">${displayName}</div>
+            <div style="font-size: 12px; color: #71767b;">@${loginId}</div>
+          </div>
+        `;
+
+        userRow.addEventListener("click", () => {
+          openDmChatWith(pUid, displayName);
+        });
+
+        container.appendChild(userRow);
+      }, { onlyOnce: true });
+    });
+  });
+}
+
+// 個別DMチャット画面を開く
+function openDmChatWith(partnerUid, partnerDisplayName) {
+  activeDmChatPartnerId = partnerUid;
+  setDisplay("dm-user-selector-view", "none");
+  setDisplay("dm-active-chat-view", "block");
+
+  const headerName = document.getElementById("dm-chat-partner-name");
+  if (headerName) headerName.innerText = partnerDisplayName;
+
+  const myUid = auth.currentUser.uid;
+  const roomKey = myUid < partnerUid ? `${myUid}_${partnerUid}` : `${partnerUid}_${myUid}`;
+
+  const chatMessagesArea = document.getElementById("dm-chat-messages");
+  const dmRef = ref(db, `direct_messages/${roomKey}`);
+
+  // リアルタイムチャットログの監視
+  onValue(dmRef, (snapshot) => {
+    if (!chatMessagesArea) return;
+    chatMessagesArea.innerHTML = "";
+
+    const messages = snapshot.val();
+    if (!messages) {
+      chatMessagesArea.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>メッセージはまだありません。</div>";
+      return;
+    }
+
+    Object.keys(messages).forEach(msgId => {
+      const msg = messages[msgId];
+      const isMe = msg.senderId === myUid;
+
+      const bubbleWrapper = document.createElement("div");
+      bubbleWrapper.style.display = "flex";
+      bubbleWrapper.style.justifyContent = isMe ? "flex-end" : "flex-start";
+      bubbleWrapper.style.marginBottom = "10px";
+
+      const bubble = document.createElement("div");
+      bubble.style.padding = "10px 14px";
+      bubble.style.borderRadius = "18px";
+      bubble.style.maxWidth = "70%";
+      bubble.style.wordBreak = "break-all";
+      bubble.style.fontSize = "14px";
+
+      if (isMe) {
+        bubble.style.backgroundColor = "#1d9bf0";
+        bubble.style.color = "#fff";
+      } else {
+        bubble.style.backgroundColor = "#2f3e56";
+        bubble.style.color = "#f3f4f6";
+      }
+
+      bubble.innerText = msg.text || "";
+      bubbleWrapper.appendChild(bubble);
+      chatMessagesArea.appendChild(bubbleWrapper);
+    });
+
+    // 最新メッセージの位置までスクロール
+    chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
+  });
+}
+
+// DM戻るボタン
+const btnBackToDmList = document.getElementById("btn-back-to-dm-list");
+if (btnBackToDmList) {
+  btnBackToDmList.addEventListener("click", () => {
+    activeDmChatPartnerId = null;
+    setDisplay("dm-active-chat-view", "none");
+    setDisplay("dm-user-selector-view", "block");
+  });
+}
+
+// DM送信処理
+const btnSendDm = document.getElementById("btn-send-dm");
+if (btnSendDm) {
+  btnSendDm.addEventListener("click", async () => {
+    const input = document.getElementById("dm-chat-input");
+    if (!input || !activeDmChatPartnerId) return;
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    const myUid = auth.currentUser.uid;
+    const partnerUid = activeDmChatPartnerId;
+    const roomKey = myUid < partnerUid ? `${myUid}_${partnerUid}` : `${partnerUid}_${myUid}`;
+
+    const newMsgKey = push(child(ref(db), `direct_messages/${roomKey}`)).key;
+    const msgData = {
+      id: newMsgKey,
+      senderId: myUid,
+      text: text,
+      createdAt: Date.now()
+    };
+
+    await set(ref(db, `direct_messages/${roomKey}/${newMsgKey}`), msgData);
+    input.value = "";
+  });
+}
+
+
+// --- 📬 新着DMお知らせバッジ（赤い印）の監視 ---
+function observeNewDmMessages(myUid) {
+  const directMsgsRef = ref(db, "direct_messages");
+  onValue(directMsgsRef, (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    let currentTotalDms = 0;
+
+    Object.keys(data).forEach(roomKey => {
+      // 自分が含まれているチャットルームのみを対象にする
+      if (roomKey.includes(myUid)) {
+        const thread = data[roomKey];
+        if (thread && typeof thread === 'object') {
+          currentTotalDms += Object.keys(thread).length;
+        }
+      }
+    });
+
+    // 2回目以降のデータ受信で、メッセージ数が増加していた場合、赤マークを表示
+    if (firstDmLoadFinished && currentTotalDms > previousDmCount) {
+      const dmBadge = document.getElementById("dm-nav-badge"); // HTML側に設置する赤い印（例：<span id="dm-nav-badge">🔴</span>）
+      if (dmBadge) {
+        dmBadge.style.display = "inline-block";
+      }
+    }
+
+    previousDmCount = currentTotalDms;
+    firstDmLoadFinished = true;
+  });
+}
+
+// DMナビゲーションをクリックした際にお知らせバッジを消す
+const dmNavBtn = document.getElementById("nav-dm-tab"); // DMタブを開くボタンのIDに合わせて調整してください
+if (dmNavBtn) {
+  dmNavBtn.addEventListener("click", () => {
+    const dmBadge = document.getElementById("dm-nav-badge");
+    if (dmBadge) {
+      dmBadge.style.display = "none";
+    }
+  });
+}
+
+
+// --- 🔔 通知送信システム ---
+async function sendNotification(targetUid, type, senderUid, postId = null) {
+  if (targetUid === senderUid) return; // 自分自身の行動は通知しない
+  
+  const notifRef = ref(db, `notifications/${targetUid}`);
+  const newNotifKey = push(notifRef).key;
+  
+  await set(ref(db, `notifications/${targetUid}/${newNotifKey}`), {
+    id: newNotifKey,
+    type: type, // "like", "reply", "quote", "follow"
+    senderId: senderUid,
+    postId: postId || "",
+    checked: false,
+    createdAt: Date.now()
+  });
+}
+
+// 通知タブのリアルタイム監視
+function initNotificationObserver() {
+  const myUid = auth.currentUser ? auth.currentUser.uid : "";
+  if (!myUid) return;
+
+  const notifRef = ref(db, `notifications/${myUid}`);
+  onValue(notifRef, (snapshot) => {
+    const data = snapshot.val();
+    const notificationContainer = document.getElementById("notification-list");
+    const navBadge = document.getElementById("notification-nav-badge"); // 通知用バッジ
+    
+    if (!notificationContainer) return;
+    notificationContainer.innerHTML = "";
+
+    if (!data) {
+      notificationContainer.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>通知はまだありません。</div>";
+      if (navBadge) navBadge.style.display = "none";
+      return;
+    }
+
+    const notifs = Object.keys(data)
+      .map(key => ({ id: key, ...data[key] }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    // 未読チェック
+    const hasUnread = notifs.some(n => !n.checked);
+    if (navBadge) {
+      navBadge.style.display = hasUnread ? "inline-block" : "none";
+    }
+
+    notifs.forEach(notif => {
+      const row = document.createElement("div");
+      row.className = `notification-item ${notif.checked ? 'read' : 'unread'}`;
+      row.style.padding = "15px";
+      row.style.borderBottom = "1px solid #2f3e56";
+      row.style.display = "flex";
+      row.style.alignItems = "center";
+
+      onValue(ref(db, `users/${notif.senderId}`), (uSnap) => {
+        const uData = uSnap.val() || {};
+        let text = "";
+        let icon = "🔔";
+
+        if (notif.type === "like") {
+          icon = "❤️";
+          text = `${uData.displayName || "名無し"}さんがあなたの投稿をいいねしました。`;
+        } else if (notif.type === "reply") {
+          icon = "💬";
+          text = `${uData.displayName || "名無し"}さんがあなたに返信しました。`;
+        } else if (notif.type === "quote") {
+          icon = "🔄";
+          text = `${uData.displayName || "名無し"}さんがあなたの投稿を引用しました。`;
+        } else if (notif.type === "follow") {
+          icon = "👥";
+          text = `${uData.displayName || "名無し"}さんにフォローされました！`;
+        }
+
+        row.innerHTML = `
+          <div style="font-size: 20px; margin-right: 15px;">${icon}</div>
+          <div>
+            <div style="color: #fff; font-size: 14px;">${text}</div>
+            <div style="font-size: 11px; color: #71767b; margin-top: 4px;">${formatDate(notif.createdAt)}</div>
+          </div>
+        `;
+      }, { onlyOnce: true });
+
+      // クリックしたら既読に更新
+      row.addEventListener("click", () => {
+        update(ref(db, `notifications/${myUid}/${notif.id}`), { checked: true });
+        if (notif.postId) {
+          // 該当ポストの親情報をとってスレッド詳細へ移動
+          get(ref(db, `posts/${notif.postId}`)).then((pSnap) => {
+            if (pSnap.exists()) openPostThreadDetail(pSnap.val());
+          });
+        }
+      });
+
+      notificationContainer.appendChild(row);
     });
   });
 }
