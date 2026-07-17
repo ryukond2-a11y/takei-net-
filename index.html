@@ -4,126 +4,202 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>takei.net plus</title>
-  <link rel="stylesheet" href="style.css"> <!-- スタイルシートのパスを合わせてね -->
+  <style>
+    /* 🎨 ここにCSSも内包させたので、別のCSSファイルがなくてもこれ一枚で綺麗になります！ */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: #000; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    
+    /* 認証ゲートウェイ */
+    .card-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+    .card { background: #15181c; border-radius: 16px; padding: 30px; width: 100%; max-width: 400px; text-align: center; }
+    .card h2 { margin-bottom: 20px; font-size: 24px; }
+    .card input, .card button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 9999px; border: 1px solid #2f3336; background: #000; color: #fff; font-size: 16px; }
+    .card button { background: #e7e9ea; color: #000; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
+    .card button:hover { background: #d7dbdc; }
+
+    /* メインレイアウト */
+    #app-container { display: flex; min-height: 100vh; max-width: 1200px; margin: 0 auto; }
+    
+    /* 左ナビゲーション */
+    .sidebar { width: 275px; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #2f3336; height: 100vh; position: sticky; top: 0; }
+    .sidebar nav { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+    .sidebar button { background: none; border: none; color: #e7e9ea; font-size: 20px; text-align: left; padding: 12px 20px; border-radius: 9999px; cursor: pointer; display: flex; align-items: center; gap: 15px; width: fit-content; transition: 0.2s; }
+    .sidebar button:hover { background: #16181c; }
+    #btn-logout { margin-top: auto; background: none; border: 1px solid #536471; color: #f4212e; text-align: center; justify-content: center; font-size: 16px; width: 100%; }
+    
+    /* メインコンテンツ */
+    .main-content { flex: 1; max-width: 600px; border-right: 1px solid #2f3336; min-height: 100vh; padding-bottom: 100px; }
+    .main-header { position: sticky; top: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(12px); border-bottom: 1px solid #2f3336; padding: 15px; z-index: 10; }
+    .main-header h1 { font-size: 20px; font-weight: bold; }
+
+    /* 投稿エリア */
+    .tweet-box { padding: 15px; border-bottom: 1px solid #2f3336; display: flex; flex-direction: column; gap: 10px; }
+    .tweet-box textarea { width: 100%; background: none; border: none; color: #fff; font-size: 18px; resize: none; outline: none; }
+    .tweet-box button { background: #1d9bf0; color: #fff; border: none; padding: 10px 20px; font-weight: bold; border-radius: 9999px; cursor: pointer; align-self: flex-end; transition: 0.2s; }
+    .tweet-box button:hover { background: #1a8cd8; }
+
+    /* 投稿（ポスト） */
+    .post { display: flex; padding: 15px; border-bottom: 1px solid #2f3336; cursor: pointer; transition: 0.2s; }
+    .post:hover { background: #080808; }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background: #2f3336; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; cursor: pointer; background-size: cover; background-position: center; flex-shrink: 0; }
+    .post-body { flex: 1; margin-left: 12px; }
+    .post-header { display: flex; gap: 8px; font-size: 15px; margin-bottom: 4px; color: #71767b; }
+    .post-header .display-name { color: #f7f9fa; font-weight: bold; }
+    .post-content { font-size: 15px; line-height: 1.5; color: #e7e9ea; word-break: break-all; }
+    .post-actions { display: flex; gap: 40px; margin-top: 12px; color: #71767b; font-size: 13px; }
+    .action-btn { cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
+    .action-btn:hover { color: #1d9bf0; }
+
+    /* 引用プレビュー */
+    .quoted-container { border: 1px solid #2f3336; border-radius: 12px; padding: 12px; margin-top: 8px; cursor: pointer; background: #000; }
+
+    /* スレッド詳細 */
+    #thread-detail-container { padding: 15px; }
+    .back-btn { background: none; border: none; color: #1d9bf0; font-size: 16px; cursor: pointer; margin-bottom: 15px; }
+
+    /* モーダル */
+    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(91, 112, 131, 0.4); display: flex; justify-content: center; align-items: center; z-index: 100; }
+    .modal { background: #000; border: 1px solid #2f3336; border-radius: 16px; padding: 25px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+    .modal h3 { margin-bottom: 15px; }
+    .modal textarea, .modal input[type="text"] { width: 100%; background: #15181c; border: 1px solid #2f3336; color: #fff; padding: 12px; border-radius: 8px; margin-bottom: 15px; resize: none; outline: none; }
+    .modal button { width: 100%; padding: 12px; border-radius: 9999px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
+
+    /* DM 画面用スタイル */
+    #dm-content { display: flex; flex-direction: column; height: 100%; min-height: calc(100vh - 60px); }
+    .dm-start-form { padding: 15px; border-bottom: 1px solid #2f3336; display: flex; gap: 10px; }
+    .dm-start-form input { flex: 1; background: #15181c; border: 1px solid #2f3336; color: #fff; padding: 10px 15px; border-radius: 9999px; outline: none; }
+    .dm-start-form button { background: #1d9bf0; color: #fff; border: none; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer; }
+    
+    /* モバイルレスポンシブ調整 */
+    @media (max-width: 700px) {
+      .sidebar { width: 70px; padding: 10px 5px; align-items: center; }
+      .sidebar button span:not(#notif-badge) { display: none; }
+      .sidebar button { padding: 10px; justify-content: center; }
+      #app-container { width: 100%; }
+    }
+  </style>
 </head>
 <body>
 
   <!-- 🔐 認証画面 -->
   <div id="auth-gateway" class="card-container" style="display: flex;">
-    <!-- ログインカード -->
     <div id="login-card" class="card">
       <h2>ログイン</h2>
       <input type="email" id="login-email" placeholder="メールアドレス">
       <input type="password" id="login-password" placeholder="パスワード">
       <button id="btn-login">ログイン</button>
-      <p><span id="to-signup" style="color: #1d9bf0; cursor: pointer;">新規登録はこちら</span></p>
+      <p style="margin-top: 15px;"><span id="to-signup" style="color: #1d9bf0; cursor: pointer;">新規登録はこちら</span></p>
     </div>
-    <!-- 新規登録カード -->
     <div id="signup-card" class="card" style="display: none;">
       <h2>新規登録</h2>
       <input type="text" id="signup-name" placeholder="表示名">
       <input type="text" id="signup-name-roman" placeholder="ログインID (英数字)">
       <input type="email" id="signup-email" placeholder="メールアドレス">
       <input type="password" id="signup-password" placeholder="パスワード">
-      <input type="file" id="signup-avatar-file" accept="image/*">
+      <input type="file" id="signup-avatar-file" accept="image/*" style="border-radius: 0; border: none;">
       <button id="btn-signup">登録する</button>
-      <p><span id="to-login" style="color: #1d9bf0; cursor: pointer;">ログインはこちら</span></p>
+      <p style="margin-top: 15px;"><span id="to-login" style="color: #1d9bf0; cursor: pointer;">ログインはこちら</span></p>
     </div>
   </div>
 
   <!-- 📱 メインアプリ画面 -->
   <div id="app-container" style="display: none;">
-    <!-- 左サイドバー（ナビゲーション） -->
+    <!-- 左サイドバー -->
     <aside class="sidebar">
-      <div id="current-user-avatar" class="avatar" style="width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">🧪</div>
+      <div id="current-user-avatar" class="avatar" style="width: 50px; height: 50px;">🧪</div>
       <nav>
-        <button id="nav-home">🏠 ホーム</button>
-        <button id="nav-notifications">🔔 通知 <span id="notif-badge" style="display: none; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px;">0</span></button>
-        <button id="nav-dms">💬 メッセージ</button>
+        <button id="nav-home">🏠 <span>ホーム</span></button>
+        <button id="nav-notifications">🔔 <span>通知</span> <span id="notif-badge" style="display: none; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px;">0</span></button>
+        <button id="nav-dms">💬 <span>メッセージ</span></button>
       </nav>
-      <button id="btn-logout" style="margin-top: auto;">ログアウト</button>
+      <button id="btn-logout">ログアウト</button>
     </aside>
 
-    <!-- メインコンテンツエリア -->
+    <!-- メインコンテンツ -->
     <main class="main-content">
       <header class="main-header">
         <h1 id="page-title">ホーム</h1>
       </header>
 
-      <!-- 📝 投稿作成エリア（ホームでのみ表示） -->
+      <!-- 📝 投稿フォーム（ホーム用） -->
       <div id="global-tweet-box" class="tweet-box">
         <textarea id="post-input" placeholder="いまどうしてる？" rows="3"></textarea>
-        <!-- 引用プレビュー表示枠 -->
-        <div id="quote-preview" style="display: none; background: #2f3336; padding: 8px; border-radius: 8px; margin-bottom: 8px; position: relative;">
-          <span id="quote-preview-content" style="font-size: 12px; color: #71767b;"></span>
-          <button id="close-quote-preview" style="position: absolute; right: 8px; top: 8px; background: none; border: none; color: white; cursor: pointer;">×</button>
+        <div id="quote-preview" style="display: none; background: #15181c; padding: 10px; border-radius: 12px; position: relative; border: 1px solid #2f3336;">
+          <span id="quote-preview-content" style="font-size: 13px; color: #71767b;"></span>
+          <button id="close-quote-preview" style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #fff; font-size: 16px; cursor: pointer;">×</button>
         </div>
         <button id="submit-post">投稿する</button>
       </div>
 
-      <!-- タイムラインエリア -->
+      <!-- タイムライン -->
       <div id="timeline"></div>
 
-      <!-- 🧵 スレッド詳細表示エリア（デフォルト非表示） -->
+      <!-- 🧵 スレッド詳細 -->
       <div id="thread-detail-container" style="display: none;">
-        <button id="btn-back-to-home" style="margin-bottom: 10px;">← タイムラインに戻る</button>
+        <button id="btn-back-to-home" class="back-btn">← タイムラインに戻る</button>
         <div id="thread-main-post"></div>
-        <div style="border-bottom: 1px solid #2f3336; padding: 10px 0; font-weight: bold;">返信一覧</div>
+        <div style="border-bottom: 1px solid #2f3336; padding: 10px 0; font-weight: bold; font-size: 16px;">返信</div>
         <div id="thread-replies-list"></div>
       </div>
 
-      <!-- 🔔 通知タイムライン（デフォルト非表示） -->
+      <!-- 🔔 通知一覧 -->
       <div id="notification-timeline" style="display: none;"></div>
 
-      <!-- 💬 DM（ダイレクトメッセージ）エリア（デフォルト非表示） -->
+      <!-- 💬 DM（ダイレクトメッセージ） -->
       <div id="dm-content" style="display: none;">
-        <!-- ユーザー一覧 -->
+        <!-- ID入力でチャットを開始するフォーム -->
+        <div class="dm-start-form">
+          <input type="text" id="dm-target-id-input" placeholder="相手のログインID（英数字）を入力">
+          <button id="btn-start-chat">チャット開始</button>
+        </div>
+        
+        <!-- チャット一覧（チャット履歴がある相手がここに自動で並びます） -->
         <div id="dm-users-list">
-          <h3 style="padding: 10px;">チャットする相手を選択</h3>
           <div id="dm-users-container"></div>
         </div>
+
         <!-- チャットウィンドウ -->
-        <div id="dm-chat-window" style="display: none; flex-direction: column; height: calc(100vh - 120px);">
+        <div id="dm-chat-window" style="display: none; flex-direction: column; height: calc(100vh - 180px);">
           <div style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #2f3336;">
-            <button id="btn-back-to-dm-users" style="margin-right: 10px;">← 戻る</button>
-            <span id="dm-chat-partner-name" style="font-weight: bold; color: white;"></span>
+            <button id="btn-back-to-dm-users" class="back-btn" style="margin-bottom: 0; margin-right: 15px;">← 戻る</button>
+            <span id="dm-chat-partner-name" style="font-weight: bold; font-size: 16px;"></span>
           </div>
-          <div id="dm-messages-container" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding: 10px; gap: 8px;"></div>
-          <div style="display: flex; padding: 10px; border-top: 1px solid #2f3336;">
-            <input type="text" id="dm-input" placeholder="メッセージを入力..." style="flex: 1; padding: 8px; border-radius: 20px; border: 1px solid #2f3336; background: #000; color: white;">
-            <button id="btn-send-dm" style="margin-left: 8px; border-radius: 50%; width: 40px; height: 40px; padding: 0;">🚀</button>
+          <div id="dm-messages-container" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding: 15px; gap: 10px;"></div>
+          <div style="display: flex; padding: 10px; border-top: 1px solid #2f3336; background: #000;">
+            <input type="text" id="dm-input" placeholder="新しいメッセージ..." style="flex: 1; padding: 10px 15px; border-radius: 9999px; border: 1px solid #2f3336; background: #15181c; color: white; outline: none;">
+            <button id="btn-send-dm" style="margin-left: 10px; background: #1d9bf0; color: #fff; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">🚀</button>
           </div>
         </div>
       </div>
     </main>
   </div>
 
-  <!-- 👥 プロフィール詳細モーダル -->
+  <!-- 👥 プロフィールモーダル -->
   <div id="user-details-modal" class="modal-backdrop" style="display: none;">
     <div class="modal">
-      <div id="details-avatar" class="avatar" style="width: 70px; height: 70px; border-radius: 50%; font-size: 32px; display: flex; align-items: center; justify-content: center;">🧪</div>
-      <h2 id="details-display-name"></h2>
-      <p id="details-login-id" style="color: #71767b;"></p>
-      <p id="details-bio" style="margin: 10px 0; line-break: anywhere;"></p>
-      <p style="font-size: 12px; color: #71767b;">登録日: <span id="details-created-at"></span></p>
-      <button id="btn-open-edit-from-details" style="display: none; margin-top: 10px;">プロフィールを編集</button>
-      <div style="border-top: 1px solid #2f3336; margin-top: 15px; padding-top: 10px;">
-        <h3>過去の投稿</h3>
+      <div id="details-avatar" class="avatar" style="width: 70px; height: 70px; font-size: 30px; margin: 0 auto 15px;">🧪</div>
+      <h2 id="details-display-name" style="text-align: center;"></h2>
+      <p id="details-login-id" style="color: #71767b; text-align: center; margin-bottom: 10px;"></p>
+      <p id="details-bio" style="margin: 10px 0; text-align: center; font-size: 14px; line-height: 1.5;"></p>
+      <p style="font-size: 12px; color: #71767b; text-align: center;">登録日: <span id="details-created-at"></span></p>
+      <button id="btn-open-edit-from-details" style="display: none; background: #1d9bf0; color: white; margin-top: 15px;">プロフィールを編集</button>
+      <div style="border-top: 1px solid #2f3336; margin-top: 20px; padding-top: 15px;">
+        <h3 style="font-size: 16px; margin-bottom: 10px;">投稿一覧</h3>
         <div id="details-posts-list"></div>
       </div>
-      <button id="close-user-details-modal" style="margin-top: 15px; background: #555;">閉じる</button>
+      <button id="close-user-details-modal" style="margin-top: 20px; background: #2f3336; color: white;">閉じる</button>
     </div>
   </div>
 
-  <!-- 📝 プロフィール編集モーダル -->
+  <!-- 👥 プロフィール編集モーダル -->
   <div id="profile-modal" class="modal-backdrop" style="display: none;">
     <div class="modal">
       <h2>プロフィール編集</h2>
       <input type="text" id="edit-display-name" placeholder="名前">
-      <textarea id="edit-bio" placeholder="自己紹介 (説明欄)" rows="3"></textarea>
+      <textarea id="edit-bio" placeholder="自己紹介" rows="3"></textarea>
       <input type="file" id="edit-avatar-file" accept="image/*">
-      <button id="btn-save-profile">保存する</button>
-      <button id="close-profile-modal" style="margin-top: 10px; background: #555;">キャンセル</button>
+      <button id="btn-save-profile" style="background: #e7e9ea; color: #000;">保存する</button>
+      <button id="close-profile-modal" style="background: #2f3336; color: white;">キャンセル</button>
     </div>
   </div>
 
@@ -131,10 +207,10 @@
   <div id="reply-modal" class="modal-backdrop" style="display: none;">
     <div class="modal">
       <h3>返信する</h3>
-      <p id="reply-target-post-content" style="color: #71767b; font-size: 13px; margin-bottom: 10px; line-break: anywhere;"></p>
-      <textarea id="reply-input" placeholder="返信をツイート" rows="3"></textarea>
-      <button id="submit-reply">返信する</button>
-      <button id="close-reply-modal" style="margin-top: 10px; background: #555;">キャンセル</button>
+      <p id="reply-target-post-content" style="color: #71767b; font-size: 14px; margin-bottom: 15px; background: #15181c; padding: 10px; border-radius: 8px;"></p>
+      <textarea id="reply-input" placeholder="返信をポスト..." rows="3"></textarea>
+      <button id="submit-reply" style="background: #1d9bf0; color: white;">送信する</button>
+      <button id="close-reply-modal" style="background: #2f3336; color: white;">キャンセル</button>
     </div>
   </div>
 
