@@ -22,20 +22,11 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-// --- チャンネル（スレッド）の定義 ---
-const CHANNELS = [
-  { id: "global", name: "🌎 タイムライン（全体）" },
-  { id: "class-1a", name: "🎒 1年A組" },
-  { id: "nakajima-elem", name: "🏫 中島小学校" },
-  { id: "grade-all", name: "👥 学年全体" }
-];
-
 // --- グローバル状態管理 ---
 let currentUserData = null;
 let currentQuotedPost = null; 
 let currentReplyToId = null;  
 let currentViewMode = "home"; // "home", "replies", "dm"
-let currentChannelId = "global"; // 現在選択されているチャンネルID
 let currentThreadPostId = null; 
 
 // DM用の状態
@@ -139,67 +130,6 @@ function safeAddListener(id, event, callback) {
   }
 }
 
-// --- チャンネル一覧を画面に描画する ---
-function renderChannelList() {
-  const sidebar = document.querySelector(".sidebar-menu") || document.getElementById("sidebar");
-  if (!sidebar) return;
-
-  // 既存のチャンネルリスト用コンテナがあれば削除して再作成、なければ作成
-  let channelContainer = document.getElementById("channels-container");
-  if (!channelContainer) {
-    channelContainer = document.createElement("div");
-    channelContainer.id = "channels-container";
-    channelContainer.style.marginTop = "20px";
-    channelContainer.style.paddingTop = "15px";
-    channelContainer.style.borderTop = "1px solid #2f3336";
-    
-    // タイトルを追加
-    const title = document.createElement("div");
-    title.innerText = "スレッド一覧";
-    title.style.color = "#71767b";
-    title.style.fontSize = "13px";
-    title.style.fontWeight = "bold";
-    title.style.paddingLeft = "10px";
-    title.style.marginBottom = "8px";
-    channelContainer.appendChild(title);
-    
-    // メニューの一番下にログアウトボタンがある場合、その手前に挿入
-    const logoutBtn = document.getElementById("btn-logout");
-    if (logoutBtn && logoutBtn.parentNode === sidebar) {
-      sidebar.insertBefore(channelContainer, logoutBtn);
-    } else {
-      sidebar.appendChild(channelContainer);
-    }
-  } else {
-    // コンテナ内のチャンネル部分だけお掃除
-    const items = channelContainer.querySelectorAll(".channel-item");
-    items.forEach(el => el.remove());
-  }
-
-  // チャンネルアイテムを追加
-  CHANNELS.forEach((ch) => {
-    const item = document.createElement("div");
-    item.className = "channel-item nav-item"; // nav-itemのスタイルを適用
-    if (ch.id === currentChannelId && currentViewMode === "home") {
-      item.classList.add("active"); // アクティブ時のハイライト
-    }
-    item.innerText = ch.name;
-    item.style.cursor = "pointer";
-    item.style.padding = "10px";
-    item.style.borderRadius = "20px";
-    item.style.color = ch.id === currentChannelId && currentViewMode === "home" ? "#1d9bf0" : "#e7e9ea";
-    item.style.fontWeight = ch.id === currentChannelId && currentViewMode === "home" ? "bold" : "normal";
-
-    item.addEventListener("click", () => {
-      currentChannelId = ch.id;
-      switchView("home");
-      renderChannelList(); // アクティブ状態を更新するために再描画
-    });
-
-    channelContainer.appendChild(item);
-  });
-}
-
 // --- UI表示切り替え ---
 function showApp(user, docData) {
   currentUserData = docData;
@@ -225,9 +155,6 @@ function showApp(user, docData) {
   } else {
     setDisplay("nav-admin", "none");
   }
-
-  // チャンネル一覧の作成
-  renderChannelList();
 
   if (currentViewMode === "dm") {
     loadDmThreads();
@@ -260,8 +187,7 @@ async function createPost(content, replyToId = null, quotedPostId = null, quoted
       quotedPostId: quotedPostId, 
       quotedData: quotedData, 
       isMigrated: false,
-      image: imageBase64 || null,
-      channelId: currentChannelId // 投稿がどのチャンネル宛てかを保存
+      image: imageBase64 || null
     });
     
     closeQuotePreview();
@@ -295,18 +221,9 @@ function loadTimeline() {
 
     let filteredPosts = postsList;
     if (currentViewMode === "home") {
-      // 1. 返信ではない元の投稿
-      // 2. かつ「現在の選択チャンネル」に一致する投稿（昔の投稿でchannelIdが無いものはglobal扱いにする）
-      filteredPosts = postsList.filter(p => {
-        const postChannel = p.channelId || "global";
-        return !p.replyTo && postChannel === currentChannelId;
-      });
-
-      // ページヘッダーのタイトルをチャンネル名に変更
-      const targetCh = CHANNELS.find(c => c.id === currentChannelId);
+      filteredPosts = postsList.filter(p => !p.replyTo);
       const titleEl = document.getElementById("page-title");
-      if (titleEl) titleEl.innerText = targetCh ? targetCh.name : "ホーム";
-      
+      if (titleEl) titleEl.innerText = "ホーム";
       setDisplay("back-to-home-btn", "none");
       setDisplay("global-tweet-box", "flex");
     } else if (currentViewMode === "replies" && currentThreadPostId) {
@@ -318,11 +235,6 @@ function loadTimeline() {
       if (titleEl) titleEl.innerText = "会話";
       setDisplay("back-to-home-btn", "block");
       setDisplay("global-tweet-box", "none"); 
-    }
-
-    if (filteredPosts.length === 0) {
-      timelineEl.innerHTML = "<div style='text-align:center; padding: 40px; color:#71767b;'>このスレッドにはまだ投稿がありません。</div>";
-      return;
     }
 
     filteredPosts.forEach((post, index) => {
@@ -718,6 +630,7 @@ window.addEventListener("DOMContentLoaded", () => {
       await set(ref(db, `users/${user.uid}`), userData);
       alert(`登録完了！ID: @${generatedId}`);
     } catch (error) {
+      // error.code が存在することを確認し、なければオブジェクト全体を確認
       const errCode = error && error.code ? error.code : "";
       const friendlyMessage = getFriendlyErrorMessage(errCode);
       alert("登録失敗: " + friendlyMessage);
@@ -867,13 +780,3 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
 });
-// 画面が読み込まれたとき、またはログイン状態が確定したときにチャンネル一覧を描画する
-document.addEventListener("DOMContentLoaded", () => {
-  // もしFirebaseの認証監視（onAuthStateChanged）の後に実行させたい場合は、
-  // ログイン成功時の処理の中に renderChannelList(); を入れても良いよ。
-  // ここでは強制的に起動時に一度実行させます。
-  if (typeof renderChannelList === "function") {
-    renderChannelList();
-  }
-});
-
