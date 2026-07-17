@@ -24,9 +24,9 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 
 // --- 📍 グローバル変数・状態管理 ---
-let currentQuoteTargetId = null; // 引用する投稿のID
-let currentReplyTargetId = null; // 返信する投稿のID
-let activeDmChatPartnerId = null; // 現在DM通信中の相手のUID
+let currentQuoteTargetId = null; 
+let currentReplyTargetId = null; 
+let activeDmChatPartnerId = null; 
 
 // ユーティリティ: 表示/非表示の切り替え
 function setDisplay(id, val) {
@@ -51,9 +51,8 @@ function toBase64(file) {
   });
 }
 
-// --- 🔐 認証ゲートウェイ（ログイン・新規登録・ログアウト） ---
+// --- 🔐 認証ゲートウェイ ---
 
-// ログインとサインアップ画面の切り替え
 const toSignupBtn = document.getElementById("to-signup");
 if (toSignupBtn) {
   toSignupBtn.addEventListener("click", () => {
@@ -70,7 +69,6 @@ if (toLoginBtn) {
   });
 }
 
-// 新規アカウント登録
 const btnSignup = document.getElementById("btn-signup");
 if (btnSignup) {
   btnSignup.addEventListener("click", async () => {
@@ -90,7 +88,7 @@ if (btnSignup) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      let photoURL = "🧪"; // デフォルト
+      let photoURL = "🧪"; 
       if (avatarFile) {
         photoURL = await toBase64(avatarFile);
       }
@@ -111,7 +109,6 @@ if (btnSignup) {
   });
 }
 
-// ログイン
 const btnLogin = document.getElementById("btn-login");
 if (btnLogin) {
   btnLogin.addEventListener("click", async () => {
@@ -126,7 +123,6 @@ if (btnLogin) {
   });
 }
 
-// ログアウト
 const btnLogout = document.getElementById("btn-logout");
 if (btnLogout) {
   btnLogout.addEventListener("click", async () => {
@@ -139,13 +135,11 @@ if (btnLogout) {
   });
 }
 
-// 認証状態の監視
 onAuthStateChanged(auth, (user) => {
   if (user) {
     setDisplay("auth-gateway", "none");
     setDisplay("app-container", "flex");
     
-    // 自分のアバター更新
     onValue(ref(db, `users/${user.uid}`), (snap) => {
       const data = snap.val();
       if (data) {
@@ -162,10 +156,9 @@ onAuthStateChanged(auth, (user) => {
       }
     });
 
-    // 初期データロード
     loadUnifiedTimeline();
     initNotificationObserver();
-    loadDmUserList(); // DM用のユーザーリストを初期ロード
+    loadDmUserList(); 
   } else {
     setDisplay("app-container", "none");
     setDisplay("auth-gateway", "flex");
@@ -175,7 +168,6 @@ onAuthStateChanged(auth, (user) => {
 
 // --- 🏠 タイムライン & 投稿管理 ---
 
-// 親スレッドのタイムライン描画
 function loadUnifiedTimeline() {
   const postsRef = ref(db, "posts");
   onValue(postsRef, (snapshot) => {
@@ -189,7 +181,6 @@ function loadUnifiedTimeline() {
       return;
     }
 
-    // parentPostId が存在しない「親投稿」のみ表示
     const posts = Object.keys(data)
       .map(key => ({ id: key, ...data[key] }))
       .filter(post => !post.parentPostId) 
@@ -202,7 +193,6 @@ function loadUnifiedTimeline() {
   });
 }
 
-// 1つの投稿エレメントをレンダリングする処理
 function renderPost(post, isThreadDetail = false) {
   const postElement = document.createElement("div");
   postElement.className = "post";
@@ -225,6 +215,7 @@ function renderPost(post, isThreadDetail = false) {
 
     const replyCount = post.replyCount || 0;
     const quoteCount = post.quoteCount || 0;
+    const likeCount = post.likeCount || 0;
 
     let quotedHTML = "";
     if (post.quotedPostId) {
@@ -253,11 +244,12 @@ function renderPost(post, isThreadDetail = false) {
         <div class="post-actions">
           <div class="action-btn" id="action-reply-${post.id}">💬 <span>${replyCount}</span></div>
           <div class="action-btn" id="action-quote-${post.id}">🔄 <span>${quoteCount}</span></div>
+          <div class="action-btn" id="action-like-${post.id}" style="color: #f91880;">❤️ <span>${likeCount}</span></div>
         </div>
       </div>
     `;
 
-    // アバタータップでプロフィール詳細表示
+    // アバタータップ
     const avatarBtn = postElement.querySelector(`#avatar-${post.id}`);
     if (avatarBtn) {
       avatarBtn.addEventListener("click", (e) => {
@@ -266,7 +258,7 @@ function renderPost(post, isThreadDetail = false) {
       });
     }
 
-    // 返信（スレッドモーダル表示）
+    // 返信モーダル
     const replyBtn = postElement.querySelector(`#action-reply-${post.id}`);
     if (replyBtn) {
       replyBtn.addEventListener("click", (e) => {
@@ -276,7 +268,6 @@ function renderPost(post, isThreadDetail = false) {
         if (targetContentEl) {
           targetContentEl.innerText = `"${displayName}: ${post.content}"`;
         }
-        // スレッド返信モーダルを開く
         setDisplay("reply-modal", "flex");
       });
     }
@@ -297,13 +288,27 @@ function renderPost(post, isThreadDetail = false) {
       });
     }
 
-    // 引用元の取得とタップ時ジャンプ
+    // ❤️ いいねボタンの動作
+    const likeBtn = postElement.querySelector(`#action-like-${post.id}`);
+    if (likeBtn) {
+      likeBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const postRef = ref(db, `posts/${post.id}`);
+        await runTransaction(postRef, (currentPost) => {
+          if (currentPost) {
+            currentPost.likeCount = (currentPost.likeCount || 0) + 1;
+          }
+          return currentPost;
+        });
+      });
+    }
+
+    // 引用プレビュー
     if (post.quotedPostId) {
       loadQuotedPreviewAndSetupJump(post.quotedPostId, `quote-preview-box-${post.id}`, `quote-content-area-${post.id}`);
     }
   });
 
-  // タイムライン一覧表示の時だけ、投稿全体をタップしたら「詳細スレッド画面」を開く
   if (!isThreadDetail) {
     postElement.addEventListener("click", () => {
       openPostThreadDetail(post);
@@ -313,7 +318,7 @@ function renderPost(post, isThreadDetail = false) {
   return postElement;
 }
 
-// 🔗 引用元のロード & ジャンプ
+// 引用ジャンプ
 function loadQuotedPreviewAndSetupJump(quotedPostId, boxId, contentId) {
   const quoteRef = ref(db, `posts/${quotedPostId}`);
   onValue(quoteRef, (snap) => {
@@ -356,12 +361,12 @@ function loadQuotedPreviewAndSetupJump(quotedPostId, boxId, contentId) {
 }
 
 
-// --- 🧵 スレッド（詳細返信一覧）の表示 ---
+// --- 🧵 スレッド表示 ---
 
 function openPostThreadDetail(parentPost) {
   setDisplay("timeline", "none");
   setDisplay("global-tweet-box", "none");
-  setDisplay("thread-detail-container", "block"); // スレッド詳細エリアを表示
+  setDisplay("thread-detail-container", "block"); 
 
   const mainPostArea = document.getElementById("thread-main-post");
   const repliesArea = document.getElementById("thread-replies-list");
@@ -370,11 +375,9 @@ function openPostThreadDetail(parentPost) {
   if (pageTitle) pageTitle.innerText = "スレッド";
   if (mainPostArea) {
     mainPostArea.innerHTML = "";
-    // メイン投稿を返信不可にしないでレンダリング
     mainPostArea.appendChild(renderPost(parentPost, true));
   }
 
-  // 子返信のリアルタイム読み込み
   const postsRef = ref(db, "posts");
   onValue(postsRef, (snapshot) => {
     if (!repliesArea) return;
@@ -382,11 +385,10 @@ function openPostThreadDetail(parentPost) {
     const data = snapshot.val();
     if (!data) return;
 
-    // parentPostId がこの投稿のIDになっている「返信」を抽出
     const replies = Object.keys(data)
       .map(key => ({ id: key, ...data[key] }))
       .filter(post => post.parentPostId === parentPost.id)
-      .sort((a, b) => a.createdAt - b.createdAt); // 返信は古い順（時系列）で並べる
+      .sort((a, b) => a.createdAt - b.createdAt); 
 
     if (replies.length === 0) {
       repliesArea.innerHTML = "<div style='padding:15px; color:#71767b; font-size:13px; text-align:center;'>返信はまだありません。</div>";
@@ -399,7 +401,6 @@ function openPostThreadDetail(parentPost) {
   });
 }
 
-// スレッド詳細からホームに戻るボタンなどの動作
 const backToHomeFromThread = document.getElementById("btn-back-to-home");
 if (backToHomeFromThread) {
   backToHomeFromThread.addEventListener("click", () => {
@@ -412,7 +413,7 @@ if (backToHomeFromThread) {
 }
 
 
-// --- 🚀 新規投稿 & 返信・引用送信ロジック ---
+// --- 🚀 送信ロジック ---
 
 async function submitPostData(content, parentPostId = null, quotedPostId = null) {
   const user = auth.currentUser;
@@ -425,7 +426,8 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null)
     content: content,
     createdAt: Date.now(),
     replyCount: 0,
-    quoteCount: 0
+    quoteCount: 0,
+    likeCount: 0
   };
 
   if (parentPostId) postData.parentPostId = parentPostId;
@@ -456,7 +458,6 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null)
   }
 }
 
-// ホームの送信ボタン
 const submitPostBtn = document.getElementById("submit-post");
 if (submitPostBtn) {
   submitPostBtn.addEventListener("click", async () => {
@@ -473,7 +474,6 @@ if (submitPostBtn) {
   });
 }
 
-// 引用取り消し
 const closeQuotePreviewBtn = document.getElementById("close-quote-preview");
 if (closeQuotePreviewBtn) {
   closeQuotePreviewBtn.addEventListener("click", () => {
@@ -482,7 +482,6 @@ if (closeQuotePreviewBtn) {
   });
 }
 
-// モーダルでの返信送信
 const submitReplyBtn = document.getElementById("submit-reply");
 if (submitReplyBtn) {
   submitReplyBtn.addEventListener("click", async () => {
@@ -508,13 +507,12 @@ if (closeReplyModalBtn) {
 }
 
 
-// --- 💬 DM (ダイレクトメッセージ) 機能の復活 ---
+// --- 💬 DM 機能の完全連動 ---
 
-// DMユーザー一覧の読み込み
 function loadDmUserList() {
   const usersRef = ref(db, "users");
   onValue(usersRef, (snap) => {
-    const listContainer = document.getElementById("dm-users-list");
+    const listContainer = document.getElementById("dm-users-container");
     if (!listContainer) return;
 
     listContainer.innerHTML = "";
@@ -524,11 +522,14 @@ function loadDmUserList() {
     const myUid = auth.currentUser ? auth.currentUser.uid : "";
 
     Object.keys(users).forEach(uid => {
-      if (uid === myUid) return; // 自分自身は除外
+      if (uid === myUid) return; 
 
       const user = users[uid];
       const item = document.createElement("div");
       item.className = "dm-user-item";
+      item.style.padding = "10px";
+      item.style.borderBottom = "1px solid #2f3336";
+      item.style.cursor = "pointer";
       item.innerHTML = `
         <div style="font-weight: bold; color: white;">${user.displayName}</div>
         <div style="font-size: 11px; color: #71767b;">@${user.userLoginId}</div>
@@ -542,17 +543,15 @@ function loadDmUserList() {
   });
 }
 
-// 特定の相手とのチャット画面を開く
 function openDmChatWith(partnerUid, partnerName) {
   activeDmChatPartnerId = partnerUid;
   const headerEl = document.getElementById("dm-chat-partner-name");
-  if (headerEl) headerEl.innerText = `${partnerName} さんとのDM`;
+  if (headerEl) headerEl.innerText = `${partnerName} さん`;
 
   setDisplay("dm-users-list", "none");
   setDisplay("dm-chat-window", "flex");
 
   const myUid = auth.currentUser.uid;
-  // チャット部屋のIDを作る (UIDを辞書順で結合して一意のキーにする)
   const dmRoomId = myUid < partnerUid ? `${myUid}_${partnerUid}` : `${partnerUid}_${myUid}`;
   
   const dmRef = ref(db, `direct_messages/${dmRoomId}`);
@@ -593,12 +592,10 @@ function openDmChatWith(partnerUid, partnerName) {
       msgsContainer.appendChild(bubble);
     });
 
-    // スクロールを一番下に下げる
     msgsContainer.scrollTop = msgsContainer.scrollHeight;
   });
 }
 
-// DM送信処理
 const sendDmBtn = document.getElementById("btn-send-dm");
 if (sendDmBtn) {
   sendDmBtn.addEventListener("click", async () => {
@@ -622,7 +619,6 @@ if (sendDmBtn) {
   });
 }
 
-// DMチャットからユーザー一覧へ戻る
 const backToDmUsersBtn = document.getElementById("btn-back-to-dm-users");
 if (backToDmUsersBtn) {
   backToDmUsersBtn.addEventListener("click", () => {
@@ -635,7 +631,6 @@ if (backToDmUsersBtn) {
 
 // --- 👥 プロフィール詳細表示 & 編集 ---
 
-// 編集の保存
 const btnSaveProfile = document.getElementById("btn-save-profile");
 if (btnSaveProfile) {
   btnSaveProfile.addEventListener("click", async () => {
@@ -674,7 +669,6 @@ if (closeProfileModalBtn) {
   });
 }
 
-// ユーザープロフィール詳細画面のロード
 function showUserProfile(uid) {
   const currentUser = auth.currentUser;
   const userRef = ref(db, `users/${uid}`);
@@ -734,7 +728,6 @@ function showUserProfile(uid) {
   }, { onlyOnce: true });
 }
 
-// プロフィール内過去投稿一覧
 function loadUserPostsOnly(uid) {
   const postsRef = ref(db, "posts");
   const listContainer = document.getElementById("details-posts-list");
@@ -910,7 +903,6 @@ if (navNotifications) {
   });
 }
 
-// 🟢 DMナビゲーションボタンをタップした時
 const navDms = document.getElementById("nav-dms");
 if (navDms) {
   navDms.addEventListener("click", () => {
@@ -918,9 +910,9 @@ if (navDms) {
     setDisplay("global-tweet-box", "none");
     setDisplay("notification-timeline", "none");
     setDisplay("thread-detail-container", "none");
-    setDisplay("dm-content", "block"); // DM画面を表示
-    setDisplay("dm-chat-window", "none"); // 最初はトーク画面は隠す
-    setDisplay("dm-users-list", "block"); // ユーザー一覧を表示
+    setDisplay("dm-content", "block"); 
+    setDisplay("dm-chat-window", "none"); 
+    setDisplay("dm-users-list", "block"); 
 
     const pageTitle = document.getElementById("page-title");
     if (pageTitle) pageTitle.innerText = "メッセージ";
