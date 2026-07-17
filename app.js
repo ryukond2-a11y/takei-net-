@@ -7,7 +7,7 @@ import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// --- ⚙️ Firebase設定（あなたの設定をここに反映したよ！） ---
+// --- ⚙️ Firebase設定 ---
 const firebaseConfig = {
   apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
   authDomain: "takei-netplus.firebaseapp.com",
@@ -26,6 +26,7 @@ const auth = getAuth(app);
 // --- 📍 グローバル変数・状態管理 ---
 let currentQuoteTargetId = null; // 引用する投稿のID
 let currentReplyTargetId = null; // 返信する投稿のID
+let activeDmChatPartnerId = null; // 現在DM通信中の相手のUID
 
 // ユーティリティ: 表示/非表示の切り替え
 function setDisplay(id, val) {
@@ -50,7 +51,7 @@ function toBase64(file) {
   });
 }
 
-// --- 🔐 認証ゲートウェイ（サインイン・サインアップ・ログアウト） ---
+// --- 🔐 認証ゲートウェイ（ログイン・新規登録・ログアウト） ---
 
 // ログインとサインアップ画面の切り替え
 const toSignupBtn = document.getElementById("to-signup");
@@ -69,7 +70,7 @@ if (toLoginBtn) {
   });
 }
 
-// サインアップ（新規アカウント登録）
+// 新規アカウント登録
 const btnSignup = document.getElementById("btn-signup");
 if (btnSignup) {
   btnSignup.addEventListener("click", async () => {
@@ -94,7 +95,6 @@ if (btnSignup) {
         photoURL = await toBase64(avatarFile);
       }
 
-      // usersノードにユーザー基本情報を書き込み
       await set(ref(db, `users/${user.uid}`), {
         uid: user.uid,
         displayName: name,
@@ -145,7 +145,7 @@ onAuthStateChanged(auth, (user) => {
     setDisplay("auth-gateway", "none");
     setDisplay("app-container", "flex");
     
-    // 自分のサイドバーアイコン更新
+    // 自分のアバター更新
     onValue(ref(db, `users/${user.uid}`), (snap) => {
       const data = snap.val();
       if (data) {
@@ -162,9 +162,10 @@ onAuthStateChanged(auth, (user) => {
       }
     });
 
-    // 初期データのロード
+    // 初期データロード
     loadUnifiedTimeline();
     initNotificationObserver();
+    loadDmUserList(); // DM用のユーザーリストを初期ロード
   } else {
     setDisplay("app-container", "none");
     setDisplay("auth-gateway", "flex");
@@ -172,9 +173,9 @@ onAuthStateChanged(auth, (user) => {
 });
 
 
-// --- 🏠 タイムライン & 投稿管理（ホームとスレッドの統合） ---
+// --- 🏠 タイムライン & 投稿管理 ---
 
-// 統一されたタイムラインロード
+// 親スレッドのタイムライン描画
 function loadUnifiedTimeline() {
   const postsRef = ref(db, "posts");
   onValue(postsRef, (snapshot) => {
@@ -184,11 +185,11 @@ function loadUnifiedTimeline() {
     timelineContainer.innerHTML = "";
     const data = snapshot.val();
     if (!data) {
-      timelineContainer.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>まだ投稿はありません。最初の投稿をしてみましょう！</div>";
+      timelineContainer.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>まだ投稿はありません。</div>";
       return;
     }
 
-    // parentPostId が存在しないもの（＝大元の新規投稿）を新着順でソート
+    // parentPostId が存在しない「親投稿」のみ表示
     const posts = Object.keys(data)
       .map(key => ({ id: key, ...data[key] }))
       .filter(post => !post.parentPostId) 
@@ -201,13 +202,12 @@ function loadUnifiedTimeline() {
   });
 }
 
-// 投稿エレメントの生成（アバター・プロフィールの動的同期対応）
-function renderPost(post) {
+// 1つの投稿エレメントをレンダリングする処理
+function renderPost(post, isThreadDetail = false) {
   const postElement = document.createElement("div");
   postElement.className = "post";
-  postElement.dataset.id = post.id; // ジャンプ用の目印
+  postElement.dataset.id = post.id;
 
-  // 投稿者のプロフィールをリアルタイム監視
   const userRef = ref(db, `users/${post.senderId}`);
   onValue(userRef, (userSnap) => {
     const uData = userSnap.val() || {};
@@ -257,7 +257,7 @@ function renderPost(post) {
       </div>
     `;
 
-    // アバターアイコンクリックで最新プロフィール表示
+    // アバタータップでプロフィール詳細表示
     const avatarBtn = postElement.querySelector(`#avatar-${post.id}`);
     if (avatarBtn) {
       avatarBtn.addEventListener("click", (e) => {
@@ -266,7 +266,7 @@ function renderPost(post) {
       });
     }
 
-    // 💬 返信ボタン
+    // 返信（スレッドモーダル表示）
     const replyBtn = postElement.querySelector(`#action-reply-${post.id}`);
     if (replyBtn) {
       replyBtn.addEventListener("click", (e) => {
@@ -276,11 +276,12 @@ function renderPost(post) {
         if (targetContentEl) {
           targetContentEl.innerText = `"${displayName}: ${post.content}"`;
         }
+        // スレッド返信モーダルを開く
         setDisplay("reply-modal", "flex");
       });
     }
 
-    // 🔄 引用ボタン
+    // 引用ボタン
     const quoteBtn = postElement.querySelector(`#action-quote-${post.id}`);
     if (quoteBtn) {
       quoteBtn.addEventListener("click", (e) => {
@@ -296,16 +297,23 @@ function renderPost(post) {
       });
     }
 
-    // 🔗 引用元のロード & ジャンプ設定
+    // 引用元の取得とタップ時ジャンプ
     if (post.quotedPostId) {
       loadQuotedPreviewAndSetupJump(post.quotedPostId, `quote-preview-box-${post.id}`, `quote-content-area-${post.id}`);
     }
   });
 
+  // タイムライン一覧表示の時だけ、投稿全体をタップしたら「詳細スレッド画面」を開く
+  if (!isThreadDetail) {
+    postElement.addEventListener("click", () => {
+      openPostThreadDetail(post);
+    });
+  }
+
   return postElement;
 }
 
-// 🔗 引用プレビューロードとジャンプ機能
+// 🔗 引用元のロード & ジャンプ
 function loadQuotedPreviewAndSetupJump(quotedPostId, boxId, contentId) {
   const quoteRef = ref(db, `posts/${quotedPostId}`);
   onValue(quoteRef, (snap) => {
@@ -341,16 +349,71 @@ function loadQuotedPreviewAndSetupJump(quotedPostId, boxId, contentId) {
           targetElement.style.backgroundColor = "transparent";
         }, 1500);
       } else {
-        alert("該当の投稿は現在のタイムライン上で読み込まれていないか、さらに過去の投稿です。");
+        alert("該当の投稿は現在のタイムライン上に見つかりません。");
       }
     };
   });
 }
 
 
-// --- 🚀 新規投稿、返信、引用、およびカウンター＆通知連動 ---
+// --- 🧵 スレッド（詳細返信一覧）の表示 ---
 
-// 共通送信ロジック
+function openPostThreadDetail(parentPost) {
+  setDisplay("timeline", "none");
+  setDisplay("global-tweet-box", "none");
+  setDisplay("thread-detail-container", "block"); // スレッド詳細エリアを表示
+
+  const mainPostArea = document.getElementById("thread-main-post");
+  const repliesArea = document.getElementById("thread-replies-list");
+  const pageTitle = document.getElementById("page-title");
+
+  if (pageTitle) pageTitle.innerText = "スレッド";
+  if (mainPostArea) {
+    mainPostArea.innerHTML = "";
+    // メイン投稿を返信不可にしないでレンダリング
+    mainPostArea.appendChild(renderPost(parentPost, true));
+  }
+
+  // 子返信のリアルタイム読み込み
+  const postsRef = ref(db, "posts");
+  onValue(postsRef, (snapshot) => {
+    if (!repliesArea) return;
+    repliesArea.innerHTML = "";
+    const data = snapshot.val();
+    if (!data) return;
+
+    // parentPostId がこの投稿のIDになっている「返信」を抽出
+    const replies = Object.keys(data)
+      .map(key => ({ id: key, ...data[key] }))
+      .filter(post => post.parentPostId === parentPost.id)
+      .sort((a, b) => a.createdAt - b.createdAt); // 返信は古い順（時系列）で並べる
+
+    if (replies.length === 0) {
+      repliesArea.innerHTML = "<div style='padding:15px; color:#71767b; font-size:13px; text-align:center;'>返信はまだありません。</div>";
+      return;
+    }
+
+    replies.forEach(reply => {
+      repliesArea.appendChild(renderPost(reply, false));
+    });
+  });
+}
+
+// スレッド詳細からホームに戻るボタンなどの動作
+const backToHomeFromThread = document.getElementById("btn-back-to-home");
+if (backToHomeFromThread) {
+  backToHomeFromThread.addEventListener("click", () => {
+    setDisplay("thread-detail-container", "none");
+    setDisplay("timeline", "block");
+    setDisplay("global-tweet-box", "block");
+    const pageTitle = document.getElementById("page-title");
+    if (pageTitle) pageTitle.innerText = "ホーム";
+  });
+}
+
+
+// --- 🚀 新規投稿 & 返信・引用送信ロジック ---
+
 async function submitPostData(content, parentPostId = null, quotedPostId = null) {
   const user = auth.currentUser;
   if (!user) return;
@@ -393,7 +456,7 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null)
   }
 }
 
-// 投稿するボタンのイベント
+// ホームの送信ボタン
 const submitPostBtn = document.getElementById("submit-post");
 if (submitPostBtn) {
   submitPostBtn.addEventListener("click", async () => {
@@ -410,7 +473,7 @@ if (submitPostBtn) {
   });
 }
 
-// 引用プレビューのキャンセル
+// 引用取り消し
 const closeQuotePreviewBtn = document.getElementById("close-quote-preview");
 if (closeQuotePreviewBtn) {
   closeQuotePreviewBtn.addEventListener("click", () => {
@@ -419,7 +482,7 @@ if (closeQuotePreviewBtn) {
   });
 }
 
-// 返信送信処理
+// モーダルでの返信送信
 const submitReplyBtn = document.getElementById("submit-reply");
 if (submitReplyBtn) {
   submitReplyBtn.addEventListener("click", async () => {
@@ -445,9 +508,134 @@ if (closeReplyModalBtn) {
 }
 
 
+// --- 💬 DM (ダイレクトメッセージ) 機能の復活 ---
+
+// DMユーザー一覧の読み込み
+function loadDmUserList() {
+  const usersRef = ref(db, "users");
+  onValue(usersRef, (snap) => {
+    const listContainer = document.getElementById("dm-users-list");
+    if (!listContainer) return;
+
+    listContainer.innerHTML = "";
+    const users = snap.val();
+    if (!users) return;
+
+    const myUid = auth.currentUser ? auth.currentUser.uid : "";
+
+    Object.keys(users).forEach(uid => {
+      if (uid === myUid) return; // 自分自身は除外
+
+      const user = users[uid];
+      const item = document.createElement("div");
+      item.className = "dm-user-item";
+      item.innerHTML = `
+        <div style="font-weight: bold; color: white;">${user.displayName}</div>
+        <div style="font-size: 11px; color: #71767b;">@${user.userLoginId}</div>
+      `;
+
+      item.addEventListener("click", () => {
+        openDmChatWith(uid, user.displayName);
+      });
+      listContainer.appendChild(item);
+    });
+  });
+}
+
+// 特定の相手とのチャット画面を開く
+function openDmChatWith(partnerUid, partnerName) {
+  activeDmChatPartnerId = partnerUid;
+  const headerEl = document.getElementById("dm-chat-partner-name");
+  if (headerEl) headerEl.innerText = `${partnerName} さんとのDM`;
+
+  setDisplay("dm-users-list", "none");
+  setDisplay("dm-chat-window", "flex");
+
+  const myUid = auth.currentUser.uid;
+  // チャット部屋のIDを作る (UIDを辞書順で結合して一意のキーにする)
+  const dmRoomId = myUid < partnerUid ? `${myUid}_${partnerUid}` : `${partnerUid}_${myUid}`;
+  
+  const dmRef = ref(db, `direct_messages/${dmRoomId}`);
+  onValue(dmRef, (snapshot) => {
+    const msgsContainer = document.getElementById("dm-messages-container");
+    if (!msgsContainer) return;
+
+    msgsContainer.innerHTML = "";
+    const msgsData = snapshot.val();
+    if (!msgsData) {
+      msgsContainer.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>メッセージはまだありません。</div>";
+      return;
+    }
+
+    const list = Object.keys(msgsData).map(key => msgsData[key]).sort((a, b) => a.createdAt - b.createdAt);
+
+    list.forEach(msg => {
+      const bubble = document.createElement("div");
+      const isMe = msg.senderId === myUid;
+      bubble.style.maxWidth = "70%";
+      bubble.style.padding = "10px 14px";
+      bubble.style.borderRadius = "16px";
+      bubble.style.marginBottom = "8px";
+      bubble.style.lineBreak = "anywhere";
+      bubble.style.fontSize = "14px";
+
+      if (isMe) {
+        bubble.style.alignSelf = "flex-end";
+        bubble.style.backgroundColor = "#1d9bf0";
+        bubble.style.color = "white";
+      } else {
+        bubble.style.alignSelf = "flex-start";
+        bubble.style.backgroundColor = "#2f3336";
+        bubble.style.color = "white";
+      }
+
+      bubble.innerText = msg.text;
+      msgsContainer.appendChild(bubble);
+    });
+
+    // スクロールを一番下に下げる
+    msgsContainer.scrollTop = msgsContainer.scrollHeight;
+  });
+}
+
+// DM送信処理
+const sendDmBtn = document.getElementById("btn-send-dm");
+if (sendDmBtn) {
+  sendDmBtn.addEventListener("click", async () => {
+    const input = document.getElementById("dm-input");
+    if (!input || !activeDmChatPartnerId) return;
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    const myUid = auth.currentUser.uid;
+    const dmRoomId = myUid < activeDmChatPartnerId ? `${myUid}_${activeDmChatPartnerId}` : `${activeDmChatPartnerId}_${myUid}`;
+
+    const newDmRef = push(ref(db, `direct_messages/${dmRoomId}`));
+    await set(newDmRef, {
+      senderId: myUid,
+      text: text,
+      createdAt: Date.now()
+    });
+
+    input.value = "";
+  });
+}
+
+// DMチャットからユーザー一覧へ戻る
+const backToDmUsersBtn = document.getElementById("btn-back-to-dm-users");
+if (backToDmUsersBtn) {
+  backToDmUsersBtn.addEventListener("click", () => {
+    activeDmChatPartnerId = null;
+    setDisplay("dm-chat-window", "none");
+    setDisplay("dm-users-list", "block");
+  });
+}
+
+
 // --- 👥 プロフィール詳細表示 & 編集 ---
 
-// プロフィール編集の保存
+// 編集の保存
 const btnSaveProfile = document.getElementById("btn-save-profile");
 if (btnSaveProfile) {
   btnSaveProfile.addEventListener("click", async () => {
@@ -486,7 +674,7 @@ if (closeProfileModalBtn) {
   });
 }
 
-// ユーザープロフィール表示
+// ユーザープロフィール詳細画面のロード
 function showUserProfile(uid) {
   const currentUser = auth.currentUser;
   const userRef = ref(db, `users/${uid}`);
@@ -546,7 +734,7 @@ function showUserProfile(uid) {
   }, { onlyOnce: true });
 }
 
-// プロフィール内過去投稿ロード
+// プロフィール内過去投稿一覧
 function loadUserPostsOnly(uid) {
   const postsRef = ref(db, "posts");
   const listContainer = document.getElementById("details-posts-list");
@@ -582,7 +770,6 @@ function loadUserPostsOnly(uid) {
   }, { onlyOnce: true });
 }
 
-// 自分のアバタークリック時
 const currentUserAvatar = document.getElementById("current-user-avatar");
 if (currentUserAvatar) {
   currentUserAvatar.addEventListener("click", () => {
@@ -672,6 +859,8 @@ function initNotificationObserver() {
         await update(ref(db, `notifications/${user.uid}/${n.id}`), { isRead: true });
         
         setDisplay("notification-timeline", "none");
+        setDisplay("dm-content", "none");
+        setDisplay("thread-detail-container", "none");
         setDisplay("timeline", "block");
         setDisplay("global-tweet-box", "block");
         const pageTitle = document.getElementById("page-title");
@@ -702,6 +891,7 @@ if (navHome) {
     setDisplay("global-tweet-box", "block");
     setDisplay("notification-timeline", "none");
     setDisplay("dm-content", "none");
+    setDisplay("thread-detail-container", "none");
     const pageTitle = document.getElementById("page-title");
     if (pageTitle) pageTitle.innerText = "ホーム";
   });
@@ -714,7 +904,25 @@ if (navNotifications) {
     setDisplay("global-tweet-box", "none");
     setDisplay("notification-timeline", "block");
     setDisplay("dm-content", "none");
+    setDisplay("thread-detail-container", "none");
     const pageTitle = document.getElementById("page-title");
     if (pageTitle) pageTitle.innerText = "通知";
+  });
+}
+
+// 🟢 DMナビゲーションボタンをタップした時
+const navDms = document.getElementById("nav-dms");
+if (navDms) {
+  navDms.addEventListener("click", () => {
+    setDisplay("timeline", "none");
+    setDisplay("global-tweet-box", "none");
+    setDisplay("notification-timeline", "none");
+    setDisplay("thread-detail-container", "none");
+    setDisplay("dm-content", "block"); // DM画面を表示
+    setDisplay("dm-chat-window", "none"); // 最初はトーク画面は隠す
+    setDisplay("dm-users-list", "block"); // ユーザー一覧を表示
+
+    const pageTitle = document.getElementById("page-title");
+    if (pageTitle) pageTitle.innerText = "メッセージ";
   });
 }
