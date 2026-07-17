@@ -257,7 +257,7 @@ function loadUnifiedTimeline() {
   });
 }
 
-// 📌 投稿＆引用表示の本体処理
+// 📌 投稿＆引用表示の本体処理（画像表示対応版）
 function renderPost(post, isThreadDetail = false) {
   const postElement = document.createElement("div");
   postElement.className = "post";
@@ -285,6 +285,16 @@ function renderPost(post, isThreadDetail = false) {
     const quoteCount = post.quoteCount || 0;
     const likeCount = post.likeCount || 0;
 
+    // 📸 【超重要】データベースに画像が保存されていたら表示用のHTMLを作る
+    let imageHTML = "";
+    if (post.image) {
+      imageHTML = `
+        <div class="post-image-container" style="margin-top: 10px; max-width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #2f3336;">
+          <img src="${post.image}" style="width: 100%; max-height: 350px; object-fit: cover; display: block;" alt="投稿画像">
+        </div>
+      `;
+    }
+
     let quotedHTML = "";
     if (post.quotedPostId) {
       quotedHTML = `
@@ -296,6 +306,7 @@ function renderPost(post, isThreadDetail = false) {
       `;
     }
 
+    // 📸 内側のHTMLに ${imageHTML} をしっかり埋め込む！
     postElement.innerHTML = `
       <div style="flex-shrink:0;">
         <div id="avatar-${post.id}" class="avatar" style="${avatarStyle}">${avatarText}</div>
@@ -308,6 +319,7 @@ function renderPost(post, isThreadDetail = false) {
           <span>${formatDate(post.createdAt)}</span>
         </div>
         <div class="post-content">${post.content}</div>
+        ${imageHTML} <!-- 👈 ここに画像がレンダリングされるよ！ -->
         ${quotedHTML}
         <div class="post-actions">
           <div class="action-btn" id="action-reply-${post.id}">💬 <span>${replyCount}</span></div>
@@ -316,6 +328,8 @@ function renderPost(post, isThreadDetail = false) {
         </div>
       </div>
     `;
+
+    // 💡 ここから下にあるはずの「クリックイベント（詳細画面への遷移やいいね、引用の処理）」はそのまま残してね！
 
     // アバタータップ
     const avatarBtn = postElement.querySelector(`#avatar-${post.id}`);
