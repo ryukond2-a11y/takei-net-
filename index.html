@@ -183,6 +183,11 @@
       <!-- 📝 投稿フォーム（ホーム用） -->
       <div id="global-tweet-box" class="tweet-box">
         <textarea id="post-input" placeholder="いまどうしてる？" rows="3"></textarea>
+        <!-- 投稿テキストエリアの近くに追加 -->
+        <div class="tweet-box-actions" style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
+          <!-- 画像選択ボタン（非表示にしてアイコン等でモディファイしてもOK。まずはシンプルなやつで！） -->
+          <input type="file" id="post-image-file" accept="image/*" style="color: #71767b; font-size: 13px;">
+        </div>
         <div id="quote-preview" style="display: none; background: #15181c; padding: 10px; border-radius: 12px; position: relative; border: 1px solid #2f3336; margin-bottom: 10px;">
           <span id="quote-preview-content" style="font-size: 13px; color: #71767b;"></span>
           <button id="close-quote-preview" style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #fff; font-size: 16px; cursor: pointer;">×</button>
