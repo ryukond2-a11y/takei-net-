@@ -2,68 +2,198 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>takei-netplus - 管理者パネル</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>takei.net plus - 管理者用パネル</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #000;
-      color: #fff;
+      background-color: #0b0f19;
+      color: #f3f4f6;
+      font-family: sans-serif;
       margin: 0;
       padding: 20px;
     }
-    .admin-container {
-      max-width: 800px;
-      margin: 0 auto;
-      background: #15181c;
-      padding: 20px;
-      border-radius: 16px;
-      border: 1px solid #2f3336;
-    }
     h1 {
-      border-bottom: 1px solid #2f3336;
+      border-bottom: 2px solid #1d9bf0;
       padding-bottom: 10px;
-      color: #f4212e;
     }
-    .user-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px;
-      border-bottom: 1px solid #2f3336;
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
     }
-    .danger-btn {
-      background-color: #f4212e;
+    .search-box {
+      background: #151f32;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #2f3e56;
+    }
+    .search-box input {
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid #2f3e56;
+      background: #000;
+      color: #fff;
+      margin-right: 10px;
+      width: 200px;
+    }
+    .search-box button {
+      background: #1d9bf0;
       color: white;
       border: none;
       padding: 8px 16px;
-      border-radius: 9999px;
+      border-radius: 4px;
       cursor: pointer;
       font-weight: bold;
     }
-    .danger-btn:hover {
-      background-color: #bd161c;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #151f32;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #2f3e56;
+    }
+    th {
+      background-color: #1e2d4a;
+      color: #1d9bf0;
+    }
+    tr:hover {
+      background-color: #1c2a43;
     }
     .back-btn {
-      background-color: #1d9bf0;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 9999px;
-      cursor: pointer;
-      margin-bottom: 20px;
-      text-decoration: none;
       display: inline-block;
+      margin-bottom: 20px;
+      color: #1d9bf0;
+      text-decoration: none;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div class="admin-container">
-    <a href="index.html" class="back-btn">← SNSに戻る</a>
-    <h1>🧪 根田理化学研究所 - 管理者コントロールセンター</h1>
-    <p>ここでは登録されたユーザーの管理（強制BAN等）を行えます。</p>
-    <div id="admin-user-list">ユーザーデータを読み込み中...</div>
+  <div class="container">
+    <a href="index.html" class="back-btn">← アプリに戻る</a>
+    <h1>⚙️ 管理者専用ページ (全DMログ監視システム)</h1>
+
+    <div class="search-box">
+      <h3>DMログの検索・フィルタ</h3>
+      <input type="text" id="search-sender" placeholder="送信者ID (部分一致可)">
+      <input type="text" id="search-receiver" placeholder="受信者ID (部分一致可)">
+      <input type="text" id="search-text" placeholder="メッセージ内容で検索">
+      <button id="btn-search-dm">検索</button>
+      <button id="btn-reset-dm" style="background:#4b5563;">リセット</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>送信日時</th>
+            <th>送信者ID (Sender)</th>
+            <th>受信者ID (Receiver)</th>
+            <th>メッセージ本文</th>
+          </tr>
+        </thead>
+        <tbody id="dm-log-table-body">
+          <tr>
+            <td colspan="4" style="text-align: center; color: #71767b;">ログを読み込み中...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <script type="module" src="admin.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // アプリと同じFirebase Configをここに貼り付けてね
+    const firebaseConfig = {
+      // ※ あなたのFirebase config情報が入ります
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let allDMs = []; // データベース上のすべてのDMをロードして保持する配列
+
+    // FirebaseからすべてのDMログを取得して監視する
+    const dmsRef = ref(db, 'dms'); // DMが保存されているDBパスに合わせてね
+    onValue(dmsRef, (snapshot) => {
+      const data = snapshot.val();
+      allDMs = [];
+
+      if (data) {
+        // Firebaseのデータを配列にフラット化する
+        Object.keys(data).forEach(threadId => {
+          const thread = data[threadId];
+          Object.keys(thread).forEach(msgId => {
+            const msg = thread[msgId];
+            allDMs.push({
+              timestamp: msg.timestamp ? new Date(msg.timestamp).toLocaleString('ja-JP') : '不明',
+              senderId: msg.senderId || '不明',
+              receiverId: msg.receiverId || '不明',
+              text: msg.text || ''
+            });
+          });
+        });
+      }
+      
+      // 最初はすべてのログを表示
+      renderDMLogs(allDMs);
+    });
+
+    // ログを描画する関数
+    function renderDMLogs(logs) {
+      const tbody = document.getElementById('dm-log-table-body');
+      tbody.innerHTML = '';
+
+      if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #71767b;">該当するDMログはありません。</td></tr>`;
+        return;
+      }
+
+      // 送信日時が新しい順（降順）にソートして表示
+      logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      logs.forEach(log => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="white-space: nowrap;">${log.timestamp}</td>
+          <td style="font-weight: bold; color: #1d9bf0;">@${log.senderId}</td>
+          <td style="font-weight: bold; color: #10b981;">@${log.receiverId}</td>
+          <td style="word-break: break-all;">${log.text}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 検索ボタンのクリック処理
+    document.getElementById('btn-search-dm').onclick = () => {
+      const senderFilter = document.getElementById('search-sender').value.toLowerCase().trim();
+      const receiverFilter = document.getElementById('search-receiver').value.toLowerCase().trim();
+      const textFilter = document.getElementById('search-text').value.toLowerCase().trim();
+
+      const filtered = allDMs.filter(log => {
+        const matchesSender = log.senderId.toLowerCase().includes(senderFilter);
+        const matchesReceiver = log.receiverId.toLowerCase().includes(receiverFilter);
+        const matchesText = log.text.toLowerCase().includes(textFilter);
+        return matchesSender && matchesReceiver && matchesText;
+      });
+
+      renderDMLogs(filtered);
+    };
+
+    // リセットボタンの処理
+    document.getElementById('btn-reset-dm').onclick = () => {
+      document.getElementById('search-sender').value = '';
+      document.getElementById('search-receiver').value = '';
+      document.getElementById('search-text').value = '';
+      renderDMLogs(allDMs);
+    };
+  </script>
 </body>
 </html>
