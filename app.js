@@ -871,3 +871,84 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
 });
+// --- 🌟 ユーザー詳細情報の表示システム ---
+async function showUserProfile(uid) {
+  if (!uid) return;
+
+  // Firebaseから該当ユーザーのデータを一度だけ取得
+  const userRef = ref(db, `users/${uid}`);
+  onValue(userRef, (snapshot) => {
+    const userData = snapshot.val();
+    if (!userData) return;
+
+    // モーダル要素の取得
+    const detailsAvatar = document.getElementById("details-avatar");
+    const detailsName = document.getElementById("details-display-name");
+    const detailsId = document.getElementById("details-login-id");
+    const detailsDate = document.getElementById("details-created-at");
+    const detailsPostsList = document.getElementById("details-posts-list");
+
+    // アバターの設定
+    if (userData.photoURL && userData.photoURL.startsWith("data:image")) {
+      detailsAvatar.innerText = "";
+      detailsAvatar.style.backgroundImage = `url(${userData.photoURL})`;
+    } else {
+      detailsAvatar.innerText = userData.photoURL || "🧪";
+      detailsAvatar.style.backgroundImage = "none";
+    }
+
+    // 基本情報設定
+    detailsName.innerText = userData.displayName;
+    detailsId.innerText = `@${userData.userLoginId}`;
+    
+    // 登録日のフォーマット (ミリ秒を日付表記に変換)
+    if (userData.createdAt) {
+      const date = new Date(userData.createdAt);
+      detailsDate.innerText = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+    } else {
+      detailsDate.innerText = "不明";
+    }
+
+    // 投稿一覧をDB全体からフィルタリングして表示
+    const postsRef = ref(db, "posts");
+    onValue(postsRef, (postSnapshot) => {
+      detailsPostsList.innerHTML = "";
+      const postsData = postSnapshot.val();
+      if (!postsData) {
+        detailsPostsList.innerHTML = "<div style='padding:10px; color:#71767b; font-size:13px;'>投稿はありません。</div>";
+        return;
+      }
+
+      const userPosts = Object.keys(postsData)
+        .map(key => ({ id: key, ...postsData[key] }))
+        .filter(post => post.senderId === uid)
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+      if (userPosts.length === 0) {
+        detailsPostsList.innerHTML = "<div style='padding:10px; color:#71767b; font-size:13px;'>投稿はありません。</div>";
+        return;
+      }
+
+      userPosts.forEach(post => {
+        const item = document.createElement("div");
+        item.className = "profile-post-item";
+        item.innerHTML = `
+          <div style="font-size:11px; color:#71767b; margin-bottom:3px;">${formatDate(post.createdAt)}</div>
+          <div style="color:#fff;">${post.content}</div>
+        `;
+        detailsPostsList.appendChild(item);
+      });
+    }, { onlyOnce: true });
+
+    // モーダル表示
+    setDisplay("user-details-modal", "flex");
+  }, { onlyOnce: true });
+}
+
+// タイムライン描画時にアバターへイベントをバインド（loadTimelineをレンダリングするタイミングで追加します）
+// 例:
+// document.getElementById(`avatar-btn-${postId}`).addEventListener("click", (e) => {
+//   e.stopPropagation();
+//   showUserProfile(post.senderId);
+// });
+
