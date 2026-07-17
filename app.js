@@ -497,9 +497,8 @@ if (backToHomeFromThread) {
   });
 }
 
-
-// --- 🚀 新規投稿処理 ---
-async function submitPostData(content, parentPostId = null, quotedPostId = null) {
+// --- 🚀 新規投稿処理（画像対応版） ---
+async function submitPostData(content, parentPostId = null, quotedPostId = null, imageBase64 = null) {
   const user = auth.currentUser;
   if (!user) return;
 
@@ -517,6 +516,7 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null)
 
   if (parentPostId) postData.parentPostId = parentPostId;
   if (quotedPostId) postData.quotedPostId = quotedPostId;
+  if (imageBase64) postData.image = imageBase64; // 📸 画像データを追加！
 
   await set(ref(db, `posts/${newPostKey}`), postData);
 
@@ -530,6 +530,18 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null)
       return currentPost;
     });
   }
+
+  if (quotedPostId) {
+    const quoteRef = ref(db, `posts/${quotedPostId}`);
+    await runTransaction(quoteRef, (currentPost) => {
+      if (currentPost) {
+        currentPost.quoteCount = (currentPost.quoteCount || 0) + 1;
+        sendNotification(currentPost.senderId, "quote", user.uid, newPostKey);
+      }
+      return currentPost;
+    });
+  }
+}
 
   if (quotedPostId) {
     const quoteRef = ref(db, `posts/${quotedPostId}`);
