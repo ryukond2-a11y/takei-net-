@@ -867,3 +867,13 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
 });
+// 画面が読み込まれたとき、またはログイン状態が確定したときにチャンネル一覧を描画する
+document.addEventListener("DOMContentLoaded", () => {
+  // もしFirebaseの認証監視（onAuthStateChanged）の後に実行させたい場合は、
+  // ログイン成功時の処理の中に renderChannelList(); を入れても良いよ。
+  // ここでは強制的に起動時に一度実行させます。
+  if (typeof renderChannelList === "function") {
+    renderChannelList();
+  }
+});
+
