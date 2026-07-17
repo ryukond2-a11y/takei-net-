@@ -35,6 +35,7 @@
       color: #fff;
       margin-right: 10px;
       width: 200px;
+      margin-bottom: 10px;
     }
     .search-box button {
       background: #1d9bf0;
@@ -110,43 +111,78 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // アプリと同じFirebase Configをここに貼り付けてね
+    // アプリと同期したFirebase設定
     const firebaseConfig = {
-      // ※ あなたのFirebase config情報が入ります
+      apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
+      authDomain: "takei-netplus.firebaseapp.com",
+      databaseURL: "https://takei-netplus-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "takei-netplus",
+      storageBucket: "takei-netplus.firebasestorage.app",
+      messagingSenderId: "180284787102",
+      appId: "1:180284787102:web:4c9880b6930f323a94ee8f",
+      measurementId: "G-HM4ELHCT3V"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let allDMs = []; // データベース上のすべてのDMをロードして保持する配列
+    let allDMs = []; // 解析済みの全DMログを保持
+    let usersMap = {}; // UIDからログインID(userLoginId)を引くためのマッピング用
 
-    // FirebaseからすべてのDMログを取得して監視する
-    const dmsRef = ref(db, 'dms'); // DMが保存されているDBパスに合わせてね
-    onValue(dmsRef, (snapshot) => {
-      const data = snapshot.val();
-      allDMs = [];
+    // 1. まずユーザー一覧を取得して、UIDをログインID(@...)に変換できるようにする
+    const usersRef = ref(db, 'users');
+    onValue(usersRef, (userSnapshot) => {
+      const usersData = userSnapshot.val() || {};
+      usersMap = {};
+      Object.keys(usersData).forEach(uid => {
+        usersMap[uid] = usersData[uid].userLoginId || "unknown";
+      });
 
-      if (data) {
-        // Firebaseのデータを配列にフラット化する
-        Object.keys(data).forEach(threadId => {
-          const thread = data[threadId];
-          Object.keys(thread).forEach(msgId => {
-            const msg = thread[msgId];
-            allDMs.push({
-              timestamp: msg.timestamp ? new Date(msg.timestamp).toLocaleString('ja-JP') : '不明',
-              senderId: msg.senderId || '不明',
-              receiverId: msg.receiverId || '不明',
-              text: msg.text || ''
-            });
-          });
-        });
-      }
-      
-      // 最初はすべてのログを表示
-      renderDMLogs(allDMs);
+      // ユーザー情報のロードが終わったら、あるいは更新されたら、DMログの解析を走らせる
+      loadAndParseDMs();
     });
 
-    // ログを描画する関数
+    // 2. DMデータをロードして、送信者・受信者のログインIDを紐付ける
+    function loadAndParseDMs() {
+      const dmsRef = ref(db, 'direct_messages');
+      onValue(dmsRef, (snapshot) => {
+        const data = snapshot.val();
+        allDMs = [];
+
+        if (data) {
+          // ルームキー（例: "uidA_uidB"）ごとにループ
+          Object.keys(data).forEach(roomKey => {
+            const uids = roomKey.split("_");
+            const thread = data[roomKey];
+
+            Object.keys(thread).forEach(msgId => {
+              const msg = thread[msgId];
+              
+              // 送信者と受信者のUIDを特定
+              const sUid = msg.senderId;
+              const rUid = uids.find(id => id !== sUid) || "unknown";
+
+              // UIDをログインID（@...）に変換。未登録ならUIDをそのままフォールバック
+              const senderLoginId = usersMap[sUid] || sUid || '不明';
+              const receiverLoginId = usersMap[rUid] || rUid || '不明';
+
+              allDMs.push({
+                rawTimestamp: msg.createdAt || 0, // ソート用
+                timestamp: msg.createdAt ? new Date(msg.createdAt).toLocaleString('ja-JP') : '不明',
+                senderId: senderLoginId,
+                receiverId: receiverLoginId,
+                text: msg.text || ''
+              });
+            });
+          });
+        }
+        
+        // 初期描画（ソートはrender側で実行）
+        renderDMLogs(allDMs);
+      });
+    }
+
+    // 3. ログを描画する関数
     function renderDMLogs(logs) {
       const tbody = document.getElementById('dm-log-table-body');
       tbody.innerHTML = '';
@@ -156,8 +192,8 @@
         return;
       }
 
-      // 送信日時が新しい順（降順）にソートして表示
-      logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      // 送信日時（ミリ秒数値）が新しい順（降順）に正しくソート
+      logs.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
 
       logs.forEach(log => {
         const tr = document.createElement('tr');
@@ -171,7 +207,7 @@
       });
     }
 
-    // 検索ボタンのクリック処理
+    // 4. 検索ボタンのクリック処理
     document.getElementById('btn-search-dm').onclick = () => {
       const senderFilter = document.getElementById('search-sender').value.toLowerCase().trim();
       const receiverFilter = document.getElementById('search-receiver').value.toLowerCase().trim();
@@ -187,7 +223,7 @@
       renderDMLogs(filtered);
     };
 
-    // リセットボタンの処理
+    // 5. リセットボタンの処理
     document.getElementById('btn-reset-dm').onclick = () => {
       document.getElementById('search-sender').value = '';
       document.getElementById('search-receiver').value = '';
