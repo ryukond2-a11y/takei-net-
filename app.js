@@ -1,22 +1,22 @@
 // app.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
-getDatabase, ref, set, push, onValue, update, runTransaction, child, get, remove
+  getDatabase, ref, set, push, onValue, update, runTransaction, child, get, remove
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import {
-getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // --- ⚙️ Firebase設定 ---
 const firebaseConfig = {
-apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
-authDomain: "takei-netplus.firebaseapp.com",
-databaseURL: "https://takei-netplus-default-rtdb.asia-southeast1.firebasedatabase.app",
-projectId: "takei-netplus",
-storageBucket: "takei-netplus.firebasestorage.app",
-messagingSenderId: "180284787102",
-appId: "1:180284787102:web:4c9880b6930f323a94ee8f",
-measurementId: "G-HM4ELHCT3V"
+  apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
+  authDomain: "takei-netplus.firebaseapp.com",
+  databaseURL: "https://takei-netplus-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "takei-netplus",
+  storageBucket: "takei-netplus.firebasestorage.app",
+  messagingSenderId: "180284787102",
+  appId: "1:180284787102:web:4c9880b6930f323a94ee8f",
+  measurementId: "G-HM4ELHCT3V"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -31,609 +31,1032 @@ let currentCategory = "general";
 
 // 表示切り替えユーティリティ
 function setDisplay(id, val) {
-const el = document.getElementById(id);
-if (el) el.style.display = val;
+  const el = document.getElementById(id);
+  if (el) el.style.display = val;
 }
 
 // 日付フォーマット
 function formatDate(timestamp) {
-if (!timestamp) return "";
-const d = new Date(timestamp);
-return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (!timestamp) return "";
+  const d = new Date(timestamp);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 // Base64エンコード
 function toBase64(file) {
-return new Promise((resolve, reject) => {
-const reader = new FileReader();
-reader.readAsDataURL(file);
-reader.onload = () => resolve(reader.result);
-reader.onerror = error => reject(error);
-});
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
 }
 
 // --- 🔐 ログイン・新規登録処理 ---
 const toSignupBtn = document.getElementById("to-signup");
 if (toSignupBtn) {
-toSignupBtn.addEventListener("click", () => {
-setDisplay("login-card", "none");
-setDisplay("signup-card", "block");
-});
+  toSignupBtn.addEventListener("click", () => {
+    setDisplay("login-card", "none");
+    setDisplay("signup-card", "block");
+  });
 }
 
 const toLoginBtn = document.getElementById("to-login");
 if (toLoginBtn) {
-toLoginBtn.addEventListener("click", () => {
-setDisplay("signup-card", "none");
-setDisplay("login-card", "block");
-});
+  toLoginBtn.addEventListener("click", () => {
+    setDisplay("signup-card", "none");
+    setDisplay("login-card", "block");
+  });
 }
 
 const btnSignup = document.getElementById("btn-signup");
 if (btnSignup) {
-btnSignup.addEventListener("click", async () => {
-const name = document.getElementById("signup-name").value.trim();
-const romanId = document.getElementById("signup-name-roman").value.trim().toLowerCase();
-let email = document.getElementById("signup-email").value.trim();
-const password = document.getElementById("signup-password").value;
-const avatarFileInput = document.getElementById("signup-avatar-file");
-const avatarFile = avatarFileInput ? avatarFileInput.files[0] : null;
+  btnSignup.addEventListener("click", async () => {
+    const name = document.getElementById("signup-name").value.trim();
+    const romanId = document.getElementById("signup-name-roman").value.trim().toLowerCase();
+    let email = document.getElementById("signup-email").value.trim();
+    const password = document.getElementById("signup-password").value;
+    const avatarFileInput = document.getElementById("signup-avatar-file");
+    const avatarFile = avatarFileInput ? avatarFileInput.files[0] : null;
 
-if (!name || !romanId || !password) {
-alert("必須項目（表示名、ログインID、パスワード）をすべて入力してください。");
-return;
-}
+    if (!name || !romanId || !password) {
+      alert("必須項目（表示名、ログインID、パスワード）をすべて入力してください。");
+      return;
+    }
 
-const usersRef = ref(db, "users");
-const usersSnap = await get(usersRef);
-if (usersSnap.exists()) {
-const usersData = usersSnap.val();
-for (const uid in usersData) {
-if (usersData[uid].userLoginId === romanId) {
-alert("このログインIDはすでに使われています。別のIDにしてください。");
-return;
-}
-}
-}
+    const usersRef = ref(db, "users");
+    const usersSnap = await get(usersRef);
+    if (usersSnap.exists()) {
+      const usersData = usersSnap.val();
+      for (const uid in usersData) {
+        if (usersData[uid].userLoginId === romanId) {
+          alert("このログインIDはすでに使われています。別のIDにしてください。");
+          return;
+        }
+      }
+    }
 
-if (!email) {
-email = `${romanId}@takei.net`;
-}
+    if (!email) {
+      email = `${romanId}@takei.net`;
+    }
 
-try {
-const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-const user = userCredential.user;
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-let photoURL = "🧪";
-if (avatarFile) {
-photoURL = await toBase64(avatarFile);
-}
+      let photoURL = "🧪";
+      if (avatarFile) {
+        photoURL = await toBase64(avatarFile);
+      }
 
-await set(ref(db, `users/${user.uid}`), {
-uid: user.uid,
-displayName: name,
-userLoginId: romanId,
-email: email,
-photoURL: photoURL,
-bio: "よろしくお願いします！",
-createdAt: Date.now()
-});
+      await set(ref(db, `users/${user.uid}`), {
+        uid: user.uid,
+        displayName: name,
+        userLoginId: romanId,
+        email: email,
+        photoURL: photoURL,
+        bio: "よろしくお願いします！",
+        createdAt: Date.now()
+      });
 
-alert("登録が完了しました！");
-} catch (e) {
-alert("登録失敗: " + e.message);
-}
-});
+      alert("登録が完了しました！");
+    } catch (e) {
+      alert("登録失敗: " + e.message);
+    }
+  });
 }
 
 const btnLogin = document.getElementById("btn-login");
 if (btnLogin) {
-btnLogin.addEventListener("click", async () => {
-const identifier = document.getElementById("login-identifier").value.trim().toLowerCase();
-const password = document.getElementById("login-password").value;
-if (!identifier || !password) {
-alert("ログイン情報を入力してください。");
-return;
-}
+  btnLogin.addEventListener("click", async () => {
+    const identifier = document.getElementById("login-identifier").value.trim().toLowerCase();
+    const password = document.getElementById("login-password").value;
+    if (!identifier || !password) {
+      alert("ログイン情報を入力してください。");
+      return;
+    }
 
-let targetEmail = identifier;
+    let targetEmail = identifier;
 
-if (!identifier.includes("@")) {
-const usersRef = ref(db, "users");
-const snapshot = await get(usersRef);
-if (snapshot.exists()) {
-const users = snapshot.val();
-let found = false;
-for (const uid in users) {
-if (users[uid].userLoginId === identifier) {
-targetEmail = users[uid].email || `${identifier}@takei.net`;
-found = true;
-break;
-}
-}
-if (!found) {
-alert("このログインIDは見つかりませんでした。");
-return;
-}
-}
-}
+    if (!identifier.includes("@")) {
+      const usersRef = ref(db, "users");
+      const snapshot = await get(usersRef);
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        let found = false;
+        for (const uid in users) {
+          if (users[uid].userLoginId === identifier) {
+            targetEmail = users[uid].email || `${identifier}@takei.net`;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          alert("このログインIDは見つかりませんでした。");
+          return;
+        }
+      }
+    }
 
-try {
-await signInWithEmailAndPassword(auth, targetEmail, password);
-} catch (e) {
-alert("ログイン失敗: " + e.message);
-}
-});
+    try {
+      await signInWithEmailAndPassword(auth, targetEmail, password);
+    } catch (e) {
+      alert("ログイン失敗: " + e.message);
+    }
+  });
 }
 
 const btnLogout = document.getElementById("btn-logout");
 if (btnLogout) {
-btnLogout.addEventListener("click", async () => {
-await signOut(auth);
-location.reload();
-});
+  btnLogout.addEventListener("click", async () => {
+    await signOut(auth);
+    location.reload();
+  });
 }
 
 const btnMobileLogout = document.getElementById("btn-mobile-logout");
 if (btnMobileLogout) {
-btnMobileLogout.addEventListener("click", async () => {
-await signOut(auth);
-location.reload();
-});
+  btnMobileLogout.addEventListener("click", async () => {
+    await signOut(auth);
+    location.reload();
+  });
 }
 
 onAuthStateChanged(auth, (user) => {
-if (user) {
-setDisplay("auth-gateway", "none");
-setDisplay("app-container", "flex");
-// ヘッダーやアバターの同期
-onValue(ref(db, `users/${user.uid}`), (snap) => {
-const data = snap.val();
-if (data) {
-const updateAvatar = (el) => {
-if (!el) return;
-if (data.photoURL && data.photoURL.startsWith("data:image")) {
-el.innerText = "";
-el.style.backgroundImage = `url(${data.photoURL})`;
-} else {
-el.innerText = data.photoURL || "🧪";
-el.style.backgroundImage = "none";
-}
-};
-updateAvatar(document.getElementById("current-user-avatar"));
-updateAvatar(document.getElementById("header-user-avatar"));
-}
-});
+  if (user) {
+    setDisplay("auth-gateway", "none");
+    setDisplay("app-container", "flex");
+    // ヘッダーやアバターの同期
+    onValue(ref(db, `users/${user.uid}`), (snap) => {
+      const data = snap.val();
+      if (data) {
+        const updateAvatar = (el) => {
+          if (!el) return;
+          if (data.photoURL && data.photoURL.startsWith("data:image")) {
+            el.innerText = "";
+            el.style.backgroundImage = `url(${data.photoURL})`;
+          } else {
+            el.innerText = data.photoURL || "🧪";
+            el.style.backgroundImage = "none";
+          }
+        };
+        updateAvatar(document.getElementById("current-user-avatar"));
+        updateAvatar(document.getElementById("header-user-avatar"));
+      }
+    });
 
-loadUnifiedTimeline();
-initNotificationObserver();
-loadDmUserList();
-} else {
-setDisplay("app-container", "none");
-setDisplay("auth-gateway", "flex");
-}
+    loadUnifiedTimeline();
+    initNotificationObserver();
+    loadDmUserList();
+  } else {
+    setDisplay("app-container", "none");
+    setDisplay("auth-gateway", "flex");
+  }
 });
 
 
 // --- 🏷️ カテゴリ（スレッド）切り替え ---
 const tabElements = document.querySelectorAll(".category-tab");
 tabElements.forEach(tab => {
-tab.addEventListener("click", (e) => {
-tabElements.forEach(t => t.classList.remove("active"));
-e.target.classList.add("active");
-currentCategory = e.target.getAttribute("data-category");
-loadUnifiedTimeline();
-});
+  tab.addEventListener("click", (e) => {
+    tabElements.forEach(t => t.classList.remove("active"));
+    e.target.classList.add("active");
+    currentCategory = e.target.getAttribute("data-category");
+    loadUnifiedTimeline();
+  });
 });
 
 
 // --- 📱 タイムライン表示 ＆ 引用機能・いいね制限の修正 ---
 function loadUnifiedTimeline() {
-const postsRef = ref(db, "posts");
-onValue(postsRef, (snapshot) => {
-const timelineContainer = document.getElementById("timeline");
-if (!timelineContainer) return;
+  const postsRef = ref(db, "posts");
+  onValue(postsRef, (snapshot) => {
+    const timelineContainer = document.getElementById("timeline");
+    if (!timelineContainer) return;
 
-timelineContainer.innerHTML = "";
-const data = snapshot.val();
-if (!data) {
-timelineContainer.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>まだ投稿はありません。</div>";
-return;
-}
+    timelineContainer.innerHTML = "";
+    const data = snapshot.val();
+    if (!data) {
+      timelineContainer.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>まだ投稿はありません。</div>";
+      return;
+    }
 
-const posts = Object.keys(data)
-.map(key => ({ id: key, ...data[key] }))
-.filter(post => !post.parentPostId && (post.category === currentCategory || (!post.category && currentCategory === "general")))
-.sort((a, b) => b.createdAt - a.createdAt);
+    const posts = Object.keys(data)
+      .map(key => ({ id: key, ...data[key] }))
+      .filter(post => !post.parentPostId && (post.category === currentCategory || (!post.category && currentCategory === "general")))
+      .sort((a, b) => b.createdAt - a.createdAt);
 
-if (posts.length === 0) {
-timelineContainer.innerHTML = `<div style='padding:20px; color:#71767b; text-align:center;'>このスレッドにはまだ投稿がありません。</div>`;
-return;
-}
+    if (posts.length === 0) {
+      timelineContainer.innerHTML = `<div style='padding:20px; color:#71767b; text-align:center;'>このスレッドにはまだ投稿がありません。</div>`;
+      return;
+    }
 
-posts.forEach(post => {
-timelineContainer.appendChild(renderPost(post));
-});
-});
+    posts.forEach(post => {
+      timelineContainer.appendChild(renderPost(post));
+    });
+  });
 }
 
 // 📌 投稿＆引用表示の本体処理
 function renderPost(post, isThreadDetail = false) {
-const postElement = document.createElement("div");
-postElement.className = "post";
-postElement.dataset.id = post.id;
+  const postElement = document.createElement("div");
+  postElement.className = "post";
+  postElement.dataset.id = post.id;
 
-const myUid = auth.currentUser ? auth.currentUser.uid : "";
+  const myUid = auth.currentUser ? auth.currentUser.uid : "";
 
-// ユーザー情報を引く
-const userRef = ref(db, `users/${post.senderId}`);
-onValue(userRef, (userSnap) => {
-const uData = userSnap.val() || {};
-const displayName = uData.displayName || "名無し";
-const userLoginId = uData.userLoginId || "unknown";
-const photoURL = uData.photoURL || "🧪";
+  // ユーザー情報を引く
+  const userRef = ref(db, `users/${post.senderId}`);
+  onValue(userRef, (userSnap) => {
+    const uData = userSnap.val() || {};
+    const displayName = uData.displayName || "名無し";
+    const userLoginId = uData.userLoginId || "unknown";
+    const photoURL = uData.photoURL || "🧪";
 
-let avatarStyle = "";
-let avatarText = "";
-if (photoURL.startsWith("data:image")) {
-avatarStyle = `background-image: url(${photoURL})`;
-} else {
-avatarText = photoURL;
-}
+    let avatarStyle = "";
+    let avatarText = "";
+    if (photoURL.startsWith("data:image")) {
+      avatarStyle = `background-image: url(${photoURL})`;
+    } else {
+      avatarText = photoURL;
+    }
 
-const replyCount = post.replyCount || 0;
-const quoteCount = post.quoteCount || 0;
-const likeCount = post.likeCount || 0;
+    const replyCount = post.replyCount || 0;
+    const quoteCount = post.quoteCount || 0;
+    const likeCount = post.likeCount || 0;
 
-let quotedHTML = "";
-if (post.quotedPostId) {
-quotedHTML = `
-<div class="quoted-container" id="quote-preview-box-${post.id}">
-<div id="quote-content-area-${post.id}" style="font-size: 13px; color: #71767b;">
-引用元を読み込み中...
-</div>
-</div>
-`;
-}
+    let quotedHTML = "";
+    if (post.quotedPostId) {
+      quotedHTML = `
+        <div class="quoted-container" id="quote-preview-box-${post.id}">
+          <div id="quote-content-area-${post.id}" style="font-size: 13px; color: #71767b;">
+            引用元を読み込み中...
+          </div>
+        </div>
+      `;
+    }
 
-postElement.innerHTML = `
-<div style="flex-shrink:0;">
-<div id="avatar-${post.id}" class="avatar" style="${avatarStyle}">${avatarText}</div>
-</div>
-<div class="post-body">
-<div class="post-header">
-<span class="display-name">${displayName}</span>
-<span>@${userLoginId}</span>
-<span>·</span>
-<span>${formatDate(post.createdAt)}</span>
-</div>
-<div class="post-content">${post.content}</div>
-${quotedHTML}
-<div class="post-actions">
-<div class="action-btn" id="action-reply-${post.id}">💬 <span>${replyCount}</span></div>
-<div class="action-btn" id="action-quote-${post.id}">🔄 <span>${quoteCount}</span></div>
-<div class="action-btn" id="action-like-${post.id}">❤️ <span id="like-count-num-${post.id}">${likeCount}</span></div>
-</div>
-</div>
-`;
+    postElement.innerHTML = `
+      <div style="flex-shrink:0;">
+        <div id="avatar-${post.id}" class="avatar" style="${avatarStyle}">${avatarText}</div>
+      </div>
+      <div class="post-body">
+        <div class="post-header">
+          <span class="display-name">${displayName}</span>
+          <span>@${userLoginId}</span>
+          <span>·</span>
+          <span>${formatDate(post.createdAt)}</span>
+        </div>
+        <div class="post-content">${post.content}</div>
+        ${quotedHTML}
+        <div class="post-actions">
+          <div class="action-btn" id="action-reply-${post.id}">💬 <span>${replyCount}</span></div>
+          <div class="action-btn" id="action-quote-${post.id}">🔄 <span>${quoteCount}</span></div>
+          <div class="action-btn" id="action-like-${post.id}">❤️ <span id="like-count-num-${post.id}">${likeCount}</span></div>
+        </div>
+      </div>
+    `;
 
-// アバタータップ
-const avatarBtn = postElement.querySelector(`#avatar-${post.id}`);
-if (avatarBtn) {
-avatarBtn.addEventListener("click", (e) => {
-e.stopPropagation();
-showUserProfile(post.senderId);
-});
-}
+    // アバタータップ
+    const avatarBtn = postElement.querySelector(`#avatar-${post.id}`);
+    if (avatarBtn) {
+      avatarBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showUserProfile(post.senderId);
+      });
+    }
 
-// 返信ボタン
-const replyBtn = postElement.querySelector(`#action-reply-${post.id}`);
-if (replyBtn) {
-replyBtn.addEventListener("click", (e) => {
-e.stopPropagation();
-currentReplyTargetId = post.id;
-const targetContentEl = document.getElementById("reply-target-post-content");
-if (targetContentEl) {
-targetContentEl.innerText = `"${displayName}: ${post.content}"`;
-}
-setDisplay("reply-modal", "flex");
-});
-}
+    // 返信ボタン
+    const replyBtn = postElement.querySelector(`#action-reply-${post.id}`);
+    if (replyBtn) {
+      replyBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        currentReplyTargetId = post.id;
+        const targetContentEl = document.getElementById("reply-target-post-content");
+        if (targetContentEl) {
+          targetContentEl.innerText = `"${displayName}: ${post.content}"`;
+        }
+        setDisplay("reply-modal", "flex");
+      });
+    }
 
-// 引用ボタン
-const quoteBtn = postElement.querySelector(`#action-quote-${post.id}`);
-if (quoteBtn) {
-quoteBtn.addEventListener("click", (e) => {
-e.stopPropagation();
-currentQuoteTargetId = post.id;
-const previewContentEl = document.getElementById("quote-preview-content");
-if (previewContentEl) {
-previewContentEl.innerText = `引用元: @${userLoginId}の投稿`;
-}
-setDisplay("quote-preview", "block");
-const postInput = document.getElementById("post-input");
-if (postInput) postInput.focus();
-});
-}
+    // 引用ボタン
+    const quoteBtn = postElement.querySelector(`#action-quote-${post.id}`);
+    if (quoteBtn) {
+      quoteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        currentQuoteTargetId = post.id;
+        const previewContentEl = document.getElementById("quote-preview-content");
+        if (previewContentEl) {
+          previewContentEl.innerText = `引用元: @${userLoginId}の投稿`;
+        }
+        setDisplay("quote-preview", "block");
+        const postInput = document.getElementById("post-input");
+        if (postInput) postInput.focus();
+      });
+    }
 
-// ❤️ いいねボタン（1人1個まで！）
-const likeBtn = postElement.querySelector(`#action-like-${post.id}`);
-if (likeBtn && myUid) {
-const userLikeRef = ref(db, `likes/${post.id}/${myUid}`);
-// 自分がすでにいいねしているかリアルタイム監視
-onValue(userLikeRef, (likeSnap) => {
-if (likeSnap.exists()) {
-likeBtn.classList.add("liked");
-} else {
-likeBtn.classList.remove("liked");
-}
-});
+    // ❤️ いいねボタン（1人1個まで！）
+    const likeBtn = postElement.querySelector(`#action-like-${post.id}`);
+    if (likeBtn && myUid) {
+      const userLikeRef = ref(db, `likes/${post.id}/${myUid}`);
+      // 自分がすでにいいねしているかリアルタイム監視
+      onValue(userLikeRef, (likeSnap) => {
+        if (likeSnap.exists()) {
+          likeBtn.classList.add("liked");
+        } else {
+          likeBtn.classList.remove("liked");
+        }
+      });
 
-likeBtn.addEventListener("click", async (e) => {
-e.stopPropagation();
-const likeCheck = await get(userLikeRef);
-const postRef = ref(db, `posts/${post.id}`);
+      likeBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const likeCheck = await get(userLikeRef);
+        const postRef = ref(db, `posts/${post.id}`);
 
-if (likeCheck.exists()) {
-// すでにいいねしている場合は、いいね解除（トグル）
-await remove(userLikeRef);
-await runTransaction(postRef, (currentPost) => {
-if (currentPost) {
-currentPost.likeCount = Math.max(0, (currentPost.likeCount || 0) - 1);
-}
-return currentPost;
-});
-} else {
-// いいねしていない場合は、新規いいね登録
-await set(userLikeRef, true);
-await runTransaction(postRef, (currentPost) => {
-if (currentPost) {
-currentPost.likeCount = (currentPost.likeCount || 0) + 1;
-sendNotification(currentPost.senderId, "like", myUid, post.id);
-}
-return currentPost;
-});
-}
-});
-}
+        if (likeCheck.exists()) {
+          // すでにいいねしている場合は、いいね解除（トグル）
+          await remove(userLikeRef);
+          await runTransaction(postRef, (currentPost) => {
+            if (currentPost) {
+              currentPost.likeCount = Math.max(0, (currentPost.likeCount || 0) - 1);
+            }
+            return currentPost;
+          });
+        } else {
+          // いいねしていない場合は、新規いいね登録
+          await set(userLikeRef, true);
+          await runTransaction(postRef, (currentPost) => {
+            if (currentPost) {
+              currentPost.likeCount = (currentPost.likeCount || 0) + 1;
+              sendNotification(currentPost.senderId, "like", myUid, post.id);
+            }
+            return currentPost;
+          });
+        }
+      });
+    }
 
-// 🔗 引用元の実体読み込み処理
-if (post.quotedPostId) {
-const quoteRef = ref(db, `posts/${post.quotedPostId}`);
-onValue(quoteRef, (quoteSnap) => {
-const quotedPost = quoteSnap.val();
-const box = document.getElementById(`quote-preview-box-${post.id}`);
-const contentArea = document.getElementById(`quote-content-area-${post.id}`);
-if (!box || !contentArea) return;
-if (!quotedPost) {
-contentArea.innerText = "⚠️ この投稿は削除されました。";
-return;
-}
+    // 🔗 引用元の実体読み込み処理（クラッシュ対策の安全版）
+    if (post.quotedPostId) {
+      const quoteRef = ref(db, `posts/${post.quotedPostId}`);
+      onValue(quoteRef, async (quoteSnap) => {
+        const quotedPost = quoteSnap.val();
+        const box = document.getElementById(`quote-preview-box-${post.id}`);
+        const contentArea = document.getElementById(`quote-content-area-${post.id}`);
+        if (!box || !contentArea) return;
 
-// 引用元のユーザー情報を取得して表示
-onValue(ref(db, `users/${quotedPost.senderId}`), (qUserSnap) => {
-const quData = qUserSnap.val() || {};
-contentArea.innerHTML = `
-<div style="font-weight: bold; margin-bottom: 4px; color: #fff; font-size: 13px;">
-${quData.displayName || "名無し"} <span style="font-weight: normal; color: #71767b; font-size: 11px;">@${quData.userLoginId || "unknown"}</span>
-</div>
-<div style="font-size: 13px; color: #e7e9ea;">${quotedPost.content}</div>
-`;
-}, { onlyOnce: true });
+        if (!quotedPost) {
+          contentArea.innerHTML = `<div style="color: #71767b; font-style: italic; padding: 4px;">⚠️ この投稿は削除されました。</div>`;
+          return;
+        }
 
-// 引用元タップ時にスレッド移動
-box.onclick = (e) => {
-e.stopPropagation();
-openPostThreadDetail(quotedPost);
-};
-});
-}
-}, { onlyOnce: true });
+        // get() を使って確実に一度だけ安全にユーザー情報を取得する
+        try {
+          const qUserSnap = await get(ref(db, `users/${quotedPost.senderId}`));
+          const quData = qUserSnap.val() || {};
+          contentArea.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px; color: #fff; font-size: 13px;">
+              ${quData.displayName || "名無し"} <span style="font-weight: normal; color: #71767b; font-size: 11px;">@${quData.userLoginId || "unknown"}</span>
+            </div>
+            <div style="font-size: 13px; color: #e7e9ea;">${quotedPost.content}</div>
+          `;
+        } catch (err) {
+          console.error("引用ユーザー情報の取得に失敗:", err);
+          contentArea.innerHTML = `<div style="font-size: 13px; color: #e7e9ea;">${quotedPost.content}</div>`;
+        }
 
-if (!isThreadDetail) {
-postElement.addEventListener("click", () => {
-openPostThreadDetail(post);
-});
-}
+        // 引用元タップ時にスレッド移動
+        box.onclick = (e) => {
+          e.stopPropagation();
+          openPostThreadDetail(quotedPost);
+        };
+      });
+    }
+  }, { onlyOnce: true });
 
-return postElement;
+  if (!isThreadDetail) {
+    postElement.addEventListener("click", () => {
+      openPostThreadDetail(post);
+    });
+  }
+
+  return postElement;
 }
 
 
 // --- 🧵 スレッド詳細表示 ---
 function openPostThreadDetail(parentPost) {
-setDisplay("timeline", "none");
-setDisplay("global-tweet-box", "none");
-setDisplay("category-tabs-container", "none");
-setDisplay("thread-detail-container", "block");
+  setDisplay("timeline", "none");
+  setDisplay("global-tweet-box", "none");
+  setDisplay("category-tabs-container", "none");
+  setDisplay("thread-detail-container", "block");
 
-const mainPostArea = document.getElementById("thread-main-post");
-const repliesArea = document.getElementById("thread-replies-list");
-const pageTitle = document.getElementById("page-title");
+  const mainPostArea = document.getElementById("thread-main-post");
+  const repliesArea = document.getElementById("thread-replies-list");
+  const pageTitle = document.getElementById("page-title");
 
-if (pageTitle) pageTitle.innerText = "スレッド";
-if (mainPostArea) {
-mainPostArea.innerHTML = "";
-mainPostArea.appendChild(renderPost(parentPost, true));
-}
+  if (pageTitle) pageTitle.innerText = "スレッド";
+  if (mainPostArea) {
+    mainPostArea.innerHTML = "";
+    mainPostArea.appendChild(renderPost(parentPost, true));
+  }
 
-const postsRef = ref(db, "posts");
-onValue(postsRef, (snapshot) => {
-if (!repliesArea) return;
-repliesArea.innerHTML = "";
-const data = snapshot.val();
-if (!data) return;
+  const postsRef = ref(db, "posts");
+  onValue(postsRef, (snapshot) => {
+    if (!repliesArea) return;
+    repliesArea.innerHTML = "";
+    const data = snapshot.val();
+    if (!data) return;
 
-const replies = Object.keys(data)
-.map(key => ({ id: key, ...data[key] }))
-.filter(post => post.parentPostId === parentPost.id)
-.sort((a, b) => a.createdAt - b.createdAt);
+    const replies = Object.keys(data)
+      .map(key => ({ id: key, ...data[key] }))
+      .filter(post => post.parentPostId === parentPost.id)
+      .sort((a, b) => a.createdAt - b.createdAt);
 
-if (replies.length === 0) {
-repliesArea.innerHTML = "<div style='padding:15px; color:#71767b; font-size:13px; text-align:center;'>返信はまだありません。</div>";
-return;
-}
+    if (replies.length === 0) {
+      repliesArea.innerHTML = "<div style='padding:15px; color:#71767b; font-size:13px; text-align:center;'>返信はまだありません。</div>";
+      return;
+    }
 
-replies.forEach(reply => {
-repliesArea.appendChild(renderPost(reply, false));
-});
-});
+    replies.forEach(reply => {
+      repliesArea.appendChild(renderPost(reply, false));
+    });
+  });
 }
 
 const backToHomeFromThread = document.getElementById("btn-back-to-home");
 if (backToHomeFromThread) {
-backToHomeFromThread.addEventListener("click", () => {
-setDisplay("thread-detail-container", "none");
-setDisplay("timeline", "block");
-setDisplay("global-tweet-box", "block");
-setDisplay("category-tabs-container", "flex");
-const pageTitle = document.getElementById("page-title");
-if (pageTitle) pageTitle.innerText = "ホーム";
-});
+  backToHomeFromThread.addEventListener("click", () => {
+    setDisplay("thread-detail-container", "none");
+    setDisplay("timeline", "block");
+    setDisplay("global-tweet-box", "block");
+    setDisplay("category-tabs-container", "flex");
+    const pageTitle = document.getElementById("page-title");
+    if (pageTitle) pageTitle.innerText = "ホーム";
+  });
 }
 
 
 // --- 🚀 新規投稿処理 ---
 async function submitPostData(content, parentPostId = null, quotedPostId = null) {
-const user = auth.currentUser;
-if (!user) return;
+  const user = auth.currentUser;
+  if (!user) return;
 
-const newPostKey = push(child(ref(db), 'posts')).key;
-const postData = {
-id: newPostKey,
-senderId: user.uid,
-content: content,
-category: currentCategory,
-createdAt: Date.now(),
-replyCount: 0,
-quoteCount: 0,
-likeCount: 0
-};
+  const newPostKey = push(child(ref(db), 'posts')).key;
+  const postData = {
+    id: newPostKey,
+    senderId: user.uid,
+    content: content,
+    category: currentCategory,
+    createdAt: Date.now(),
+    replyCount: 0,
+    quoteCount: 0,
+    likeCount: 0
+  };
 
-if (parentPostId) postData.parentPostId = parentPostId;
-if (quotedPostId) postData.quotedPostId = quotedPostId;
+  if (parentPostId) postData.parentPostId = parentPostId;
+  if (quotedPostId) postData.quotedPostId = quotedPostId;
 
-await set(ref(db, `posts/${newPostKey}`), postData);
+  await set(ref(db, `posts/${newPostKey}`), postData);
 
-if (parentPostId) {
-const parentRef = ref(db, `posts/${parentPostId}`);
-await runTransaction(parentRef, (currentPost) => {
-if (currentPost) {
-currentPost.replyCount = (currentPost.replyCount || 0) + 1;
-sendNotification(currentPost.senderId, "reply", user.uid, newPostKey);
-}
-return currentPost;
-});
-}
+  if (parentPostId) {
+    const parentRef = ref(db, `posts/${parentPostId}`);
+    await runTransaction(parentRef, (currentPost) => {
+      if (currentPost) {
+        currentPost.replyCount = (currentPost.replyCount || 0) + 1;
+        sendNotification(currentPost.senderId, "reply", user.uid, newPostKey);
+      }
+      return currentPost;
+    });
+  }
 
-if (quotedPostId) {
-const quoteRef = ref(db, `posts/${quotedPostId}`);
-await runTransaction(quoteRef, (currentPost) => {
-if (currentPost) {
-currentPost.quoteCount = (currentPost.quoteCount || 0) + 1;
-sendNotification(currentPost.senderId, "quote", user.uid, newPostKey);
-}
-return currentPost;
-});
-}
+  if (quotedPostId) {
+    const quoteRef = ref(db, `posts/${quotedPostId}`);
+    await runTransaction(quoteRef, (currentPost) => {
+      if (currentPost) {
+        currentPost.quoteCount = (currentPost.quoteCount || 0) + 1;
+        sendNotification(currentPost.senderId, "quote", user.uid, newPostKey);
+      }
+      return currentPost;
+    });
+  }
 }
 
 const submitPostBtn = document.getElementById("submit-post");
 if (submitPostBtn) {
-submitPostBtn.addEventListener("click", async () => {
-const input = document.getElementById("post-input");
-if (!input) return;
-const content = input.value.trim();
-if (!content) return;
+  submitPostBtn.addEventListener("click", async () => {
+    const input = document.getElementById("post-input");
+    if (!input) return;
+    const content = input.value.trim();
+    if (!content) return;
 
-await submitPostData(content, null, currentQuoteTargetId);
-input.value = "";
-currentQuoteTargetId = null;
-setDisplay("quote-preview", "none");
-});
+    await submitPostData(content, null, currentQuoteTargetId);
+    input.value = "";
+    currentQuoteTargetId = null;
+    setDisplay("quote-preview", "none");
+  });
 }
 
 const closeQuotePreviewBtn = document.getElementById("close-quote-preview");
 if (closeQuotePreviewBtn) {
-closeQuotePreviewBtn.addEventListener("click", () => {
-currentQuoteTargetId = null;
-setDisplay("quote-preview", "none");
-});
+  closeQuotePreviewBtn.addEventListener("click", () => {
+    currentQuoteTargetId = null;
+    setDisplay("quote-preview", "none");
+  });
 }
 
 const submitReplyBtn = document.getElementById("submit-reply");
 if (submitReplyBtn) {
-submitReplyBtn.addEventListener("click", async () => {
-const input = document.getElementById("reply-input");
-if (!input || !currentReplyTargetId) return;
-const content = input.value.trim();
-if (!content) return;
+  submitReplyBtn.addEventListener("click", async () => {
+    const input = document.getElementById("reply-input");
+    if (!input || !currentReplyTargetId) return;
+    const content = input.value.trim();
+    if (!content) return;
 
-await submitPostData(content, currentReplyTargetId, null);
-input.value = "";
-currentReplyTargetId = null;
-setDisplay("reply-modal", "none");
-});
+    await submitPostData(content, currentReplyTargetId, null);
+    input.value = "";
+    currentReplyTargetId = null;
+    setDisplay("reply-modal", "none");
+  });
 }
 
 
 // --- 💬 DMチャット機能 ---
 const btnStartChat = document.getElementById("btn-start-chat");
 if (btnStartChat) {
-btnStartChat.addEventListener("click", async () => {
-const input = document.getElementById("dm-target-id-input");
-if (!input) return;
-const rawTargetId = input.value.trim().toLowerCase();
-if (!rawTargetId) {
-alert("ログインIDを入力してください。");
-return;
-}
+  btnStartChat.addEventListener("click", async () => {
+    const input = document.getElementById("dm-target-id-input");
+    if (!input) return;
+    const rawTargetId = input.value.trim().toLowerCase();
+    if (!rawTargetId) {
+      alert("ログインIDを入力してください。");
+      return;
+    }
 
-if (!auth.currentUser) return;
+    if (!auth.currentUser) return;
 
-const usersRef = ref(db, "users");
-const snapshot = await get(usersRef);
-const users = snapshot.val();
-let foundPartner = null;
-if (users) {
-for (const uid in users) {
-if (users[uid].userLoginId === rawTargetId) {
-foundPartner = users[uid];
-break;
-}
-}
-}
+    const usersRef = ref(db, "users");
+    const snapshot = await get(usersRef);
+    const users = snapshot.val();
+    let foundPartner = null;
+    if (users) {
+      for (const uid in users) {
+        if (users[uid].userLoginId === rawTargetId) {
+          foundPartner = users[uid];
+          break;
+        }
+      }
+    }
 
-if (foundPartner) {
-if (foundPartner.uid === auth.currentUser.uid) {
-alert("自分自身とチャットすることはできません！");
-return;
-}
-input.value = "";
-openDmChatWith(foundPartner.uid, foundPartner.displayName);
-} else {
-alert("ユーザーが見つかりませんでした。");
-}
-});
-これを元にルール厳守で完全版を
+    if (foundPartner) {
+      if (foundPartner.uid === auth.currentUser.uid) {
+        alert("自分自身とチャットすることはできません！");
+        return;
+      }
+      input.value = "";
+      openDmChatWith(foundPartner.uid, foundPartner.displayName);
+    } else {
+      alert("ユーザーが見つかりませんでした。");
+    }
+  });
 }
 
 function loadDmUserList() {
-const directMsgsRef = ref(db, "direct_messages");
-onValue(directMsgsRef, (snapshot) => {
-const container = document.getElementById("dm-users-container");
-if (!container) return;
-container.innerHTML = "";
+  const directMsgsRef = ref(db, "direct_messages");
+  onValue(directMsgsRef, (snapshot) => {
+    const container = document.getElementById("dm-users-container");
+    if (!container) return;
+    container.innerHTML = "";
 
-const data = snapshot.val();
-if (!data) {
-container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>メッセージ履歴がありません。</div>";
-return;
+    const data = snapshot.val();
+    if (!data) {
+      container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>メッセージ履歴がありません。</div>";
+      return;
+    }
+
+    const myUid = auth.currentUser ? auth.currentUser.uid : "";
+    const activePartnerUids = new Set();
+
+    Object.keys(data).forEach(roomKey => {
+      if (roomKey.includes(myUid)) {
+        const uids = roomKey.split("_");
+        const partnerUid = uids.find(id => id !== myUid);
+        if (partnerUid) {
+          activePartnerUids.add(partnerUid);
+        }
+      }
+    });
+
+    if (activePartnerUids.size === 0) {
+      container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>メッセージ履歴がありません。</div>";
+      return;
+    }
+
+    activePartnerUids.forEach(partnerUid => {
+      const userRef = ref(db, `users/${partnerUid}`);
+      get(userRef).then((uSnap) => {
+        const uData = uSnap.val() || {};
+        const div = document.createElement("div");
+        div.style.display = "flex";
+        div.style.alignItems = "center";
+        div.style.padding = "10px";
+        div.style.borderBottom = "1px solid #2f3336";
+        div.style.cursor = "pointer";
+
+        const photoURL = uData.photoURL || "🧪";
+        let avatarStyle = "";
+        let avatarText = "";
+        if (photoURL.startsWith("data:image")) {
+          avatarStyle = `background-image: url(${photoURL}); background-size: cover; background-position: center;`;
+        } else {
+          avatarText = photoURL;
+        }
+
+        div.innerHTML = `
+          <div class="avatar" style="width: 40px; height: 40px; border-radius: 50%; background: #2f3336; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; margin-right: 12px; ${avatarStyle}">${avatarText}</div>
+          <div style="font-weight: bold;">${uData.displayName || "名無し"}</div>
+        `;
+
+        div.onclick = () => {
+          openDmChatWith(partnerUid, uData.displayName || "名無し");
+        };
+
+        container.appendChild(div);
+      });
+    });
+  });
 }
 
-const myUid = auth.currentUser ? auth.currentUser.uid : "";
-const activePartnerUids = new Set();
+function openDmChatWith(partnerId, partnerName) {
+  activeDmChatPartnerId = partnerId;
+  setDisplay("dm-users-list", "none");
+  const form = document.querySelector(".dm-start-form");
+  if (form) form.style.display = "none";
+  setDisplay("dm-chat-window", "flex");
 
-Object.keys(data).forEach(roomKey => {
-if (roomKey.includes(myUid)) {
-const uids = roomKey.split("_");
+  const nameEl = document.getElementById("dm-chat-partner-name");
+  if (nameEl) nameEl.innerText = partnerName;
+
+  const myUid = auth.currentUser.uid;
+  const roomKey = myUid < partnerId ? `${myUid}_${partnerId}` : `${partnerId}_${myUid}`;
+
+  const msgsRef = ref(db, `direct_messages/${roomKey}`);
+  onValue(msgsRef, (snap) => {
+    const container = document.getElementById("dm-messages-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const data = snap.val();
+    if (!data) return;
+
+    Object.keys(data).forEach(k => {
+      const msg = data[k];
+      const isMe = msg.senderId === myUid;
+      const wrap = document.createElement("div");
+      wrap.style.display = "flex";
+      wrap.style.justifyContent = isMe ? "flex-end" : "flex-start";
+      wrap.style.width = "100%";
+
+      const bubble = document.createElement("div");
+      bubble.innerText = msg.text;
+      bubble.style.padding = "10px 15px";
+      bubble.style.borderRadius = "20px";
+      bubble.style.maxWidth = "70%";
+      bubble.style.wordBreak = "break-all";
+      bubble.style.background = isMe ? "#1d9bf0" : "#2f3336";
+      bubble.style.color = "white";
+
+      wrap.appendChild(bubble);
+      container.appendChild(wrap);
+    });
+
+    container.scrollTop = container.scrollHeight;
+  });
+}
+
+const btnSendDm = document.getElementById("btn-send-dm");
+if (btnSendDm) {
+  btnSendDm.addEventListener("click", async () => {
+    const input = document.getElementById("dm-input");
+    if (!input || !activeDmChatPartnerId) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    const myUid = auth.currentUser.uid;
+    const roomKey = myUid < activeDmChatPartnerId ? `${myUid}_${activeDmChatPartnerId}` : `${activeDmChatPartnerId}_${myUid}`;
+
+    const newMsgRef = push(ref(db, `direct_messages/${roomKey}`));
+    await set(newMsgRef, {
+      senderId: myUid,
+      text: text,
+      createdAt: Date.now()
+    });
+
+    input.value = "";
+  });
+}
+
+const btnBackToDmUsers = document.getElementById("btn-back-to-dm-users");
+if (btnBackToDmUsers) {
+  btnBackToDmUsers.addEventListener("click", () => {
+    activeDmChatPartnerId = null;
+    setDisplay("dm-chat-window", "none");
+    setDisplay("dm-users-list", "block");
+    const form = document.querySelector(".dm-start-form");
+    if (form) form.style.display = "flex";
+  });
+}
+
+
+// --- 🔔 通知機能 ---
+async function sendNotification(receiverId, type, senderId, postId) {
+  if (receiverId === senderId) return; // 自分宛ての通知は送らない
+  const notifRef = push(ref(db, `notifications/${receiverId}`));
+  await set(notifRef, {
+    type: type,
+    senderId: senderId,
+    postId: postId,
+    read: false,
+    createdAt: Date.now()
+  });
+}
+
+function initNotificationObserver() {
+  const myUid = auth.currentUser ? auth.currentUser.uid : null;
+  if (!myUid) return;
+
+  const notifRef = ref(db, `notifications/${myUid}`);
+  onValue(notifRef, (snap) => {
+    const data = snap.val();
+    let unreadCount = 0;
+    const listContainer = document.getElementById("notification-timeline");
+    if (listContainer) listContainer.innerHTML = "";
+
+    if (data) {
+      const sortedNotifs = Object.keys(data)
+        .map(k => ({ key: k, ...data[k] }))
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+      sortedNotifs.forEach(notif => {
+        if (!notif.read) unreadCount++;
+
+        if (listContainer) {
+          const div = document.createElement("div");
+          div.style.padding = "15px";
+          div.style.borderBottom = "1px solid #2f3336";
+          div.style.display = "flex";
+          div.style.alignItems = "center";
+          div.style.gap = "10px";
+
+          get(ref(db, `users/${notif.senderId}`)).then((userSnap) => {
+            const uData = userSnap.val() || {};
+            let typeText = "";
+            if (notif.type === "like") typeText = "さんがあなたの投稿にいいねしました❤️";
+            if (notif.type === "reply") typeText = "さんがあなたに返信しました💬";
+            if (notif.type === "quote") typeText = "さんがあなたの投稿を引用しました🔄";
+
+            div.innerHTML = `
+              <div style="font-weight: bold; color: #fff;">${uData.displayName || "名無し"}</div>
+              <div style="color: #71767b;">${typeText}</div>
+            `;
+          });
+
+          // 通知を読んだら既読にする処理
+          div.onclick = async () => {
+            await update(ref(db, `notifications/${myUid}/${notif.key}`), { read: true });
+          };
+
+          listContainer.appendChild(div);
+        }
+      });
+    }
+
+    const notifBadge = document.getElementById("notif-badge");
+    const mNotifBadge = document.getElementById("m-notif-badge");
+
+    if (unreadCount > 0) {
+      if (notifBadge) { notifBadge.innerText = unreadCount; notifBadge.style.display = "inline-block"; }
+      if (mNotifBadge) { mNotifBadge.innerText = unreadCount; mNotifBadge.style.display = "block"; }
+    } else {
+      if (notifBadge) notifBadge.style.display = "none";
+      if (mNotifBadge) mNotifBadge.style.display = "none";
+    }
+  });
+}
+
+
+// --- 👤 プロフィール画面 & 編集 ---
+async function showUserProfile(uid) {
+  const userRef = ref(db, `users/${uid}`);
+  const snap = await get(userRef);
+  if (!snap.exists()) return;
+  const data = snap.val();
+
+  const detailsAvatar = document.getElementById("details-avatar");
+  const detailsName = document.getElementById("details-display-name");
+  const detailsLoginId = document.getElementById("details-login-id");
+  const detailsBio = document.getElementById("details-bio");
+  const detailsCreatedAt = document.getElementById("details-created-at");
+  const btnEdit = document.getElementById("btn-open-edit-from-details");
+  const btnMobileLogout = document.getElementById("btn-mobile-logout");
+
+  if (detailsAvatar) {
+    if (data.photoURL && data.photoURL.startsWith("data:image")) {
+      detailsAvatar.innerText = "";
+      detailsAvatar.style.backgroundImage = `url(${data.photoURL})`;
+    } else {
+      detailsAvatar.innerText = data.photoURL || "🧪";
+      detailsAvatar.style.backgroundImage = "none";
+    }
+  }
+
+  if (detailsName) detailsName.innerText = data.displayName || "名無し";
+  if (detailsLoginId) detailsLoginId.innerText = `@${data.userLoginId || "unknown"}`;
+  if (detailsBio) detailsBio.innerText = data.bio || "自己紹介はありません。";
+  if (detailsCreatedAt) detailsCreatedAt.innerText = formatDate(data.createdAt);
+
+  const myUid = auth.currentUser ? auth.currentUser.uid : null;
+  if (myUid === uid) {
+    if (btnEdit) btnEdit.style.display = "block";
+    if (btnMobileLogout) btnMobileLogout.style.display = "block";
+  } else {
+    if (btnEdit) btnEdit.style.display = "none";
+    if (btnMobileLogout) btnMobileLogout.style.display = "none";
+  }
+
+  // プロフィール内での投稿一覧読み込み
+  const postsRef = ref(db, "posts");
+  const postsSnap = await get(postsRef);
+  const postsList = document.getElementById("details-posts-list");
+  if (postsList) {
+    postsList.innerHTML = "";
+    const pData = postsSnap.val();
+    if (pData) {
+      const myPosts = Object.keys(pData)
+        .map(key => ({ id: key, ...pData[key] }))
+        .filter(post => post.senderId === uid && !post.parentPostId)
+        .sort((a, b) => b.createdAt - a.createdAt);
+
+      if (myPosts.length === 0) {
+        postsList.innerHTML = "<div style='padding:10px; color:#71767b; font-size:12px; text-align:center;'>投稿はまだありません。</div>";
+      } else {
+        myPosts.forEach(p => {
+          postsList.appendChild(renderPost(p, true));
+        });
+      }
+    }
+  }
+
+  setDisplay("user-details-modal", "flex");
+}
+
+const closeUserDetailsBtn = document.getElementById("close-user-details-modal");
+if (closeUserDetailsBtn) {
+  closeUserDetailsBtn.addEventListener("click", () => {
+    setDisplay("user-details-modal", "none");
+  });
+}
+
+const btnOpenEditFromDetails = document.getElementById("btn-open-edit-from-details");
+if (btnOpenEditFromDetails) {
+  btnOpenEditFromDetails.addEventListener("click", async () => {
+    const myUid = auth.currentUser.uid;
+    const snap = await get(ref(db, `users/${myUid}`));
+    const data = snap.val();
+    if (!data) return;
+
+    const editName = document.getElementById("edit-display-name");
+    const editBio = document.getElementById("edit-bio");
+
+    if (editName) editName.value = data.displayName || "";
+    if (editBio) editBio.value = data.bio || "";
+
+    setDisplay("user-details-modal", "none");
+    setDisplay("profile-modal", "flex");
+  });
+}
+
+const btnSaveProfile = document.getElementById("btn-save-profile");
+if (btnSaveProfile) {
+  btnSaveProfile.addEventListener("click", async () => {
+    const myUid = auth.currentUser.uid;
+    const newName = document.getElementById("edit-display-name").value.trim();
+    const newBio = document.getElementById("edit-bio").value.trim();
+    const editAvatarFile = document.getElementById("edit-avatar-file");
+    const newFile = editAvatarFile ? editAvatarFile.files[0] : null;
+
+    if (!newName) {
+      alert("名前を入力してください。");
+      return;
+    }
+
+    const updates = {
+      displayName: newName,
+      bio: newBio
+    };
+
+    if (newFile) {
+      updates.photoURL = await toBase64(newFile);
+    }
+
+    try {
+      await update(ref(db, `users/${myUid}`), updates);
+      alert("プロフィールを保存しました！");
+      setDisplay("profile-modal", "none");
+      location.reload();
+    } catch (e) {
+      alert("保存失敗: " + e.message);
+    }
+  });
+}
+
+const closeProfileModalBtn = document.getElementById("close-profile-modal");
+if (closeProfileModalBtn) {
+  closeProfileModalBtn.addEventListener("click", () => {
+    setDisplay("profile-modal", "none");
+  });
+}
+
+const closeReplyModalBtn = document.getElementById("close-reply-modal");
+if (closeReplyModalBtn) {
+  closeReplyModalBtn.addEventListener("click", () => {
+    setDisplay("reply-modal", "none");
+  });
+}
+
+// --- 📱 ナビゲーション切り替え (ホーム、通知、メッセージ、設定) ---
+const navHome = document.getElementById("nav-home");
+const mNavHome = document.getElementById("m-nav-home");
+const navNotif = document.getElementById("nav-notifications");
+const mNavNotif = document.getElementById("m-nav-notifications");
+const navDms = document.getElementById("nav-dms");
+const mNavDms = document.getElementById("m-nav-dms");
+const mNavProfile = document.getElementById("m-nav-profile");
+
+function resetActiveNav() {
+  const navBtns = [mNavHome, mNavNotif, mNavDms, mNavProfile];
+  navBtns.forEach(btn => { if (btn) btn.classList.remove("active"); });
+}
+
+function showHomeSection() {
+  resetActiveNav();
+  if (mNavHome) mNavHome.classList.add("active");
+  setDisplay("thread-detail-container", "none");
+  setDisplay("timeline", "block");
+  setDisplay("global-tweet-box", "block");
+  setDisplay("category-tabs-container", "flex");
+  setDisplay("notification-timeline", "none");
+  setDisplay("dm-content", "none");
+  const pageTitle = document.getElementById("page-title");
+  if (pageTitle) pageTitle.innerText = "ホーム";
+}
+
+if (navHome) navHome.addEventListener("click", showHomeSection);
+if (mNavHome) mNavHome.addEventListener("click", showHomeSection);
+
+function showNotificationSection() {
+  resetActiveNav();
+  if (mNavNotif) mNavNotif.classList.add("active");
+  setDisplay("thread-detail-container", "none");
+  setDisplay("timeline", "none");
+  setDisplay("global-tweet-box", "none");
+  setDisplay("category-tabs-container", "none");
+  setDisplay("notification-timeline", "block");
+  setDisplay("dm-content", "none");
+  const pageTitle = document.getElementById("page-title");
+  if (pageTitle) pageTitle.innerText = "通知";
+}
+
+if (navNotif) navNotif.addEventListener("click", showNotificationSection);
+if (mNavNotif) mNavNotif.addEventListener("click", showNotificationSection);
+
+function showDmSection() {
+  resetActiveNav();
+  if (mNavDms) mNavDms.classList.add("active");
+  setDisplay("thread-detail-container", "none");
+  setDisplay("timeline", "none");
+  setDisplay("global-tweet-box", "none");
+  setDisplay("category-tabs-container", "none");
+  setDisplay("notification-timeline", "none");
+  setDisplay("dm-content", "flex");
+  setDisplay("dm-users-list", "block");
+  setDisplay("dm-chat-window", "none");
+  const form = document.querySelector(".dm-start-form");
+  if (form) form.style.display = "flex";
+  const pageTitle = document.getElementById("page-title");
+  if (pageTitle) pageTitle.innerText = "メッセージ";
+}
+
+if (navDms) navDms.addEventListener("click", showDmSection);
+if (mNavDms) mNavDms.addEventListener("click", showDmSection);
+
+if (mNavProfile) {
+  mNavProfile.addEventListener("click", () => {
+    resetActiveNav();
+    mNavProfile.classList.add("active");
+    if (auth.currentUser) {
+      showUserProfile(auth.currentUser.uid);
+    }
+  });
+}
