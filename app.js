@@ -27,6 +27,7 @@ const auth = getAuth(app);
 let currentQuoteTargetId = null; 
 let currentReplyTargetId = null; 
 let activeDmChatPartnerId = null; 
+let currentCategory = "general"; // 初期表示のカテゴリ
 
 // ユーティリティ: 表示非表示
 function setDisplay(id, val) {
@@ -51,7 +52,7 @@ function toBase64(file) {
   });
 }
 
-// --- 🔐 認証処理 ---
+// --- 🔐 認証・アカウント登録・ログイン処理 ---
 const toSignupBtn = document.getElementById("to-signup");
 if (toSignupBtn) {
   toSignupBtn.addEventListener("click", () => {
@@ -68,19 +69,38 @@ if (toLoginBtn) {
   });
 }
 
+// 新規登録処理（メアドが空でもOK！）
 const btnSignup = document.getElementById("btn-signup");
 if (btnSignup) {
   btnSignup.addEventListener("click", async () => {
     const name = document.getElementById("signup-name").value.trim();
     const romanId = document.getElementById("signup-name-roman").value.trim().toLowerCase();
-    const email = document.getElementById("signup-email").value.trim();
+    let email = document.getElementById("signup-email").value.trim();
     const password = document.getElementById("signup-password").value;
     const avatarFileInput = document.getElementById("signup-avatar-file");
     const avatarFile = avatarFileInput ? avatarFileInput.files[0] : null;
 
-    if (!name || !romanId || !email || !password) {
-      alert("すべての項目を入力してください。");
+    if (!name || !romanId || !password) {
+      alert("必須項目（表示名、ログインID、パスワード）をすべて入力してください。");
       return;
+    }
+
+    // ログインIDがすでに使われていないかチェック
+    const usersRef = ref(db, "users");
+    const usersSnap = await get(usersRef);
+    if (usersSnap.exists()) {
+      const usersData = usersSnap.val();
+      for (const uid in usersData) {
+        if (usersData[uid].userLoginId === romanId) {
+          alert("このログインIDはすでに使われています。別のIDにしてください。");
+          return;
+        }
+      }
+    }
+
+    // メールアドレスの入力を省略した場合、自動生成
+    if (!email) {
+      email = `${romanId}@takei.net`;
     }
 
     try {
@@ -96,6 +116,7 @@ if (btnSignup) {
         uid: user.uid,
         displayName: name,
         userLoginId: romanId,
+        email: email, // メアドも保存
         photoURL: photoURL,
         bio: "よろしくお願いします！", 
         createdAt: Date.now()
@@ -108,13 +129,43 @@ if (btnSignup) {
   });
 }
 
+// ログイン処理（IDでもメアドでもログイン可能に）
 const btnLogin = document.getElementById("btn-login");
 if (btnLogin) {
   btnLogin.addEventListener("click", async () => {
-    const email = document.getElementById("login-email").value.trim();
+    const identifier = document.getElementById("login-identifier").value.trim().toLowerCase();
     const password = document.getElementById("login-password").value;
+    
+    if (!identifier || !password) {
+      alert("ログインIDまたはメールアドレスと、パスワードを入力してください。");
+      return;
+    }
+
+    let targetEmail = identifier;
+
+    // 入力された文字がメールアドレス形式（@を含む）でない場合、ログインIDとして検索
+    if (!identifier.includes("@")) {
+      const usersRef = ref(db, "users");
+      const snapshot = await get(usersRef);
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        let found = false;
+        for (const uid in users) {
+          if (users[uid].userLoginId === identifier) {
+            targetEmail = users[uid].email || `${identifier}@takei.net`;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          alert("このログインIDは見つかりませんでした。スペルを確認するか、新規登録してください。");
+          return;
+        }
+      }
+    }
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, targetEmail, password);
     } catch (e) {
       alert("ログイン失敗: " + e.message);
     }
@@ -160,7 +211,19 @@ onAuthStateChanged(auth, (user) => {
 });
 
 
-// --- 🏠 タイムライン ---
+// --- 🏷️ スレッドカテゴリ切り替え ---
+const tabElements = document.querySelectorAll(".category-tab");
+tabElements.forEach(tab => {
+  tab.addEventListener("click", (e) => {
+    tabElements.forEach(t => t.classList.remove("active"));
+    e.target.classList.add("active");
+    currentCategory = e.target.getAttribute("data-category");
+    loadUnifiedTimeline(); // タイムラインの再読み込み
+  });
+});
+
+
+// --- タイムラインの読込 & 引用機能修正 ---
 function loadUnifiedTimeline() {
   const postsRef = ref(db, "posts");
   onValue(postsRef, (snapshot) => {
@@ -174,10 +237,16 @@ function loadUnifiedTimeline() {
       return;
     }
 
+    // 選択中のカテゴリ（general、takehaya、nakajima、takehaya-1a）に一致し、かつ親ポストがないものだけ抽出
     const posts = Object.keys(data)
       .map(key => ({ id: key, ...data[key] }))
-      .filter(post => !post.parentPostId) 
+      .filter(post => !post.parentPostId && (post.category === currentCategory || (!post.category && currentCategory === "general")))
       .sort((a, b) => b.createdAt - a.createdAt);
+
+    if (posts.length === 0) {
+      timelineContainer.innerHTML = `<div style='padding:20px; color:#71767b; text-align:center;'>このスレッドにはまだ投稿がありません。</div>`;
+      return;
+    }
 
     posts.forEach(post => {
       timelineContainer.appendChild(renderPost(post));
@@ -185,6 +254,7 @@ function loadUnifiedTimeline() {
   });
 }
 
+// 投稿データのレンダー（引用元もここから直接読み込み）
 function renderPost(post, isThreadDetail = false) {
   const postElement = document.createElement("div");
   postElement.className = "post";
@@ -280,7 +350,7 @@ function renderPost(post, isThreadDetail = false) {
       });
     }
 
-    // ❤️ いいねボタン
+    // ❤️ いいね
     const likeBtn = postElement.querySelector(`#action-like-${post.id}`);
     if (likeBtn) {
       likeBtn.addEventListener("click", async (e) => {
@@ -295,8 +365,44 @@ function renderPost(post, isThreadDetail = false) {
       });
     }
 
+    // 🌟 引用元の読み込み
     if (post.quotedPostId) {
-      loadQuotedPreviewAndSetupJump(post.quotedPostId, `quote-preview-box-${post.id}`, `quote-content-area-${post.id}`);
+      const quoteRef = ref(db, `posts/${post.quotedPostId}`);
+      onValue(quoteRef, (snap) => {
+        const quotedPost = snap.val();
+        const box = document.getElementById(`quote-preview-box-${post.id}`);
+        const contentArea = document.getElementById(`quote-content-area-${post.id}`);
+        
+        if (!box || !contentArea) return;
+        if (!quotedPost) {
+          contentArea.innerText = "⚠️ この投稿は削除されました。";
+          return;
+        }
+
+        onValue(ref(db, `users/${quotedPost.senderId}`), (userSnap) => {
+          const quData = userSnap.val() || {};
+          contentArea.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px; color: #fff; font-size: 13px;">
+              ${quData.displayName || "名無し"} <span style="font-weight: normal; color: #71767b; font-size: 11px;">@${quData.userLoginId || "unknown"}</span>
+            </div>
+            <div style="font-size: 13px; color: #e7e9ea;">${quotedPost.content}</div>
+          `;
+        }, { onlyOnce: true });
+
+        // 引用プレビューをクリックした際にその親スレッドにスクロール
+        box.onclick = (e) => {
+          e.stopPropagation();
+          const targetElement = document.querySelector(`.post[data-id="${post.quotedPostId}"]`);
+          if (targetElement) {
+            targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+            targetElement.style.transition = "background-color 0.3s";
+            targetElement.style.backgroundColor = "#1d9bf033";
+            setTimeout(() => { targetElement.style.backgroundColor = "transparent"; }, 1500);
+          } else {
+            alert("このスレッド、または別のスレッドにある引用元の投稿です。");
+          }
+        };
+      });
     }
   });
 
@@ -309,49 +415,12 @@ function renderPost(post, isThreadDetail = false) {
   return postElement;
 }
 
-function loadQuotedPreviewAndSetupJump(quotedPostId, boxId, contentId) {
-  const quoteRef = ref(db, `posts/${quotedPostId}`);
-  onValue(quoteRef, (snap) => {
-    const quotedPost = snap.val();
-    const box = document.getElementById(boxId);
-    const contentArea = document.getElementById(contentId);
-    
-    if (!box || !contentArea) return;
-    if (!quotedPost) {
-      contentArea.innerText = "⚠️ この投稿は削除されました。";
-      return;
-    }
 
-    onValue(ref(db, `users/${quotedPost.senderId}`), (userSnap) => {
-      const uData = userSnap.val() || {};
-      contentArea.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 4px; color: #fff;">
-          ${uData.displayName || "名無し"} <span style="font-weight: normal; color: #71767b; font-size: 12px;">@${uData.userLoginId || "unknown"}</span>
-        </div>
-        <div>${quotedPost.content}</div>
-      `;
-    }, { onlyOnce: true });
-
-    box.onclick = (e) => {
-      e.stopPropagation();
-      const targetElement = document.querySelector(`.post[data-id="${quotedPostId}"]`);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
-        targetElement.style.transition = "background-color 0.3s";
-        targetElement.style.backgroundColor = "#1d9bf033";
-        setTimeout(() => { targetElement.style.backgroundColor = "transparent"; }, 1500);
-      } else {
-        alert("タイムライン上に引用投稿が見つかりませんでした。");
-      }
-    };
-  });
-}
-
-
-// --- 🧵 スレッド詳細表示 ---
+// --- 🧵 スレッド（返信ツリー）詳細表示 ---
 function openPostThreadDetail(parentPost) {
   setDisplay("timeline", "none");
   setDisplay("global-tweet-box", "none");
+  setDisplay("category-tabs-container", "none"); // カテゴリ一覧も非表示にする
   setDisplay("thread-detail-container", "block"); 
 
   const mainPostArea = document.getElementById("thread-main-post");
@@ -393,6 +462,7 @@ if (backToHomeFromThread) {
     setDisplay("thread-detail-container", "none");
     setDisplay("timeline", "block");
     setDisplay("global-tweet-box", "block");
+    setDisplay("category-tabs-container", "flex");
     const pageTitle = document.getElementById("page-title");
     if (pageTitle) pageTitle.innerText = "ホーム";
   });
@@ -409,6 +479,7 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null)
     id: newPostKey,
     senderId: user.uid,
     content: content,
+    category: currentCategory, // 投稿時点のアクティブなカテゴリ（ general / takehaya / nakajima / takehaya-1a ）を登録
     createdAt: Date.now(),
     replyCount: 0,
     quoteCount: 0,
@@ -490,9 +561,7 @@ if (closeReplyModalBtn) {
 }
 
 
-// --- 💬 DM機能（手動ID入力スタート版） ---
-
-// 1. チャット開始ボタンが押された時の処理
+// --- 💬 DM機能 ---
 const btnStartChat = document.getElementById("btn-start-chat");
 if (btnStartChat) {
   btnStartChat.addEventListener("click", async () => {
@@ -506,7 +575,6 @@ if (btnStartChat) {
 
     if (!auth.currentUser) return;
 
-    // Firebaseの users データから、入力された英数字ログインID (userLoginId) を持っているユーザーを探す
     const usersRef = ref(db, "users");
     const snapshot = await get(usersRef);
     const users = snapshot.val();
@@ -527,15 +595,13 @@ if (btnStartChat) {
         return;
       }
       input.value = "";
-      // チャットウィンドウを開く
       openDmChatWith(foundPartner.uid, foundPartner.displayName);
     } else {
-      alert("入力されたIDのユーザーが見つかりませんでした。スペルを確認してください。");
+      alert("入力されたIDのユーザーが見つかりませんでした。");
     }
   });
 }
 
-// 2. DMのアクティブリスト（過去に履歴がある人の一覧）をリアルタイムで構築
 function loadDmUserList() {
   const directMsgsRef = ref(db, "direct_messages");
   onValue(directMsgsRef, (snapshot) => {
@@ -545,14 +611,13 @@ function loadDmUserList() {
 
     const data = snapshot.val();
     if (!data) {
-      container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>過去のチャットはありません。IDを入力してチャットを開始してください。</div>";
+      container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>チャット履歴はありません。IDを入力して開始してください。</div>";
       return;
     }
 
     const myUid = auth.currentUser ? auth.currentUser.uid : "";
     const activePartnerUids = new Set();
 
-    // 自分のUIDが含まれているチャットルーム（部屋ID名が "uid1_uid2"）を抽出
     Object.keys(data).forEach(roomKey => {
       if (roomKey.includes(myUid)) {
         const uids = roomKey.split("_");
@@ -562,7 +627,7 @@ function loadDmUserList() {
     });
 
     if (activePartnerUids.size === 0) {
-      container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>過去のチャットはありません。IDを入力してチャットを開始してください。</div>";
+      container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>チャット履歴はありません。IDを入力して開始してください。</div>";
       return;
     }
 
@@ -571,7 +636,6 @@ function loadDmUserList() {
         const uData = uSnap.val();
         if (!uData) return;
 
-        // 既存のリストアイテムがあれば上書き更新するために一度消す
         const existing = document.getElementById(`dm-list-item-${pUid}`);
         if (existing) existing.remove();
 
@@ -692,7 +756,7 @@ if (backToDmUsersBtn) {
 }
 
 
-// --- 👥 プロフィール ---
+// --- 👥 プロフィールモーダル ---
 const btnSaveProfile = document.getElementById("btn-save-profile");
 if (btnSaveProfile) {
   btnSaveProfile.addEventListener("click", async () => {
@@ -917,6 +981,7 @@ function initNotificationObserver() {
         setDisplay("thread-detail-container", "none");
         setDisplay("timeline", "block");
         setDisplay("global-tweet-box", "block");
+        setDisplay("category-tabs-container", "flex");
         const pageTitle = document.getElementById("page-title");
         if (pageTitle) pageTitle.innerText = "ホーム";
 
@@ -942,6 +1007,7 @@ if (navHome) {
   navHome.addEventListener("click", () => {
     setDisplay("timeline", "block");
     setDisplay("global-tweet-box", "block");
+    setDisplay("category-tabs-container", "flex"); // カテゴリタブを出す
     setDisplay("notification-timeline", "none");
     setDisplay("dm-content", "none");
     setDisplay("thread-detail-container", "none");
@@ -955,6 +1021,7 @@ if (navNotifications) {
   navNotifications.addEventListener("click", () => {
     setDisplay("timeline", "none");
     setDisplay("global-tweet-box", "none");
+    setDisplay("category-tabs-container", "none");
     setDisplay("notification-timeline", "block");
     setDisplay("dm-content", "none");
     setDisplay("thread-detail-container", "none");
@@ -968,6 +1035,7 @@ if (navDms) {
   navDms.addEventListener("click", () => {
     setDisplay("timeline", "none");
     setDisplay("global-tweet-box", "none");
+    setDisplay("category-tabs-container", "none");
     setDisplay("notification-timeline", "none");
     setDisplay("thread-detail-container", "none");
     setDisplay("dm-content", "block"); 
