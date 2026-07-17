@@ -33,6 +33,36 @@ let currentThreadPostId = null;
 let currentActiveDmPartnerUid = null;
 let dmMessagesListener = null; // リスナー解除用の保持
 
+// --- Firebaseエラーメッセージ日本語化ヘルパー ---
+function getFriendlyErrorMessage(errorCode) {
+  switch (errorCode) {
+    // 新規登録関連
+    case "auth/weak-password":
+      return "パスワードが短すぎます。6文字以上で設定してください。";
+    case "auth/email-already-in-use":
+      return "このメールアドレスはすでに登録されています。";
+    case "auth/invalid-email":
+      return "無効なメールアドレスの形式です。";
+    case "auth/operation-not-allowed":
+      return "この登録方法は現在許可されていません。";
+    
+    // ログイン関連
+    case "auth/wrong-password":
+      return "パスワードが間違っています。";
+    case "auth/user-not-found":
+      return "登録されていないメールアドレスです。";
+    case "auth/invalid-credential":
+      return "メールアドレス、またはパスワードが間違っています。";
+    case "auth/user-disabled":
+      return "このアカウントは無効化されています。";
+    case "auth/too-many-requests":
+      return "何度も失敗したため一時的にロックされています。少し時間を置いてからお試しください。";
+      
+    default:
+      return "エラーが発生しました。入力内容を確認してください。";
+  }
+}
+
 // --- 日付フォーマット ---
 function formatDate(timestamp) {
   if (!timestamp) return "";
@@ -155,7 +185,7 @@ async function createPost(content, replyToId = null, quotedPostId = null, quoted
       quotedPostId: quotedPostId, 
       quotedData: quotedData, 
       isMigrated: false,
-      image: imageBase64 || null // 画像データを格納（画像がない場合はnull）
+      image: imageBase64 || null
     });
     
     closeQuotePreview();
@@ -230,7 +260,6 @@ function loadTimeline() {
         avatarText = post.senderIcon;
       }
 
-      // 画像が投稿されている場合のHTML要素を作成
       let postImageHTML = "";
       if (post.image && post.image.startsWith("data:image")) {
         postImageHTML = `
@@ -563,7 +592,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // 2. イベント登録
 
-  // 新規登録
+  // 新規登録 (日本語エラーハンドリングを追加)
   safeAddListener("btn-signup", "click", async () => {
     const name = document.getElementById("signup-name")?.value.trim();
     const romanName = document.getElementById("signup-name-roman")?.value.trim();
@@ -577,174 +606,4 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      const generatedId = romanName.toLowerCase().replace(/[^a-z0-9]/g, "") + Math.floor(1000 + Math.random() * 9000);
-
-      let finalPhotoUrl = "🧪"; 
-      if (avatarFile) {
-        finalPhotoUrl = await compressAndConvertToBase64(avatarFile);
-      }
-
-      const userData = {
-        uid: user.uid,
-        email: email,
-        displayName: name,
-        userLoginId: generatedId,
-        photoURL: finalPhotoUrl,
-        role: email.toLowerCase().trim() === "ryukond2@gmail.com" ? "admin" : "user",
-        createdAt: Date.now()
-      };
-
-      await set(ref(db, `users/${user.uid}`), userData);
-      alert(`登録完了！ID: @${generatedId}`);
-    } catch (error) {
-      alert("登録失敗: " + error.message);
-    }
-  });
-
-  // ログイン
-  safeAddListener("btn-login", "click", async () => {
-    const email = document.getElementById("login-email")?.value.trim();
-    const password = document.getElementById("login-password")?.value;
-    if (!email || !password) return alert("入力してね");
-    try { 
-      await signInWithEmailAndPassword(auth, email, password); 
-    } catch (e) { 
-      alert("ログイン失敗: " + e.message); 
-    }
-  });
-
-  // ログアウト
-  safeAddListener("btn-logout", "click", () => { 
-    signOut(auth); 
-  });
-
-  // タブ切り替え（ホーム / DM）
-  safeAddListener("nav-home", "click", () => {
-    switchView("home");
-  });
-
-  safeAddListener("nav-dm", "click", () => {
-    switchView("dm");
-  });
-
-  // DM機能ボタン
-  safeAddListener("btn-start-dm-search", "click", searchAndStartDm);
-  safeAddListener("btn-send-dm", "click", sendDmMessage);
-  
-  // DM入力フィールドでのEnterキー送信
-  const dmMsgInput = document.getElementById("dm-message-input");
-  if (dmMsgInput) {
-    dmMsgInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        sendDmMessage();
-      }
-    });
-  }
-
-  // 投稿ボタン（画像付き投稿のサポートを追加）
-  safeAddListener("submit-post", "click", async () => {
-    const input = document.getElementById("post-input");
-    const imageInput = document.getElementById("post-image-file"); // 画像用input要素
-
-    if (input && (input.value.trim() !== "" || (imageInput && imageInput.files[0]))) {
-      let finalImageUrl = null;
-      
-      // 画像ファイルが選択されている場合は圧縮してBase64にする
-      if (imageInput && imageInput.files[0]) {
-        finalImageUrl = await compressAndConvertToBase64(imageInput.files[0]);
-      }
-
-      if (currentQuotedPost) {
-        await createPost(input.value, null, currentQuotedPost.id, {
-          senderName: currentQuotedPost.senderName,
-          senderLoginId: currentQuotedPost.senderLoginId,
-          content: currentQuotedPost.content
-        }, finalImageUrl);
-      } else {
-        await createPost(input.value, null, null, null, finalImageUrl);
-      }
-
-      // 入力欄とファイルをクリア
-      input.value = "";
-      if (imageInput) imageInput.value = "";
-    }
-  });
-
-  // 引用、返信モーダルなどの閉じるボタン
-  safeAddListener("close-quote-preview", "click", closeQuotePreview);
-  safeAddListener("close-reply-modal", "click", () => { setDisplay("reply-modal", "none"); });
-  safeAddListener("back-to-home-btn", "click", () => {
-    currentViewMode = "home";
-    currentThreadPostId = null;
-    loadTimeline();
-  });
-
-  safeAddListener("submit-reply", "click", () => {
-    const replyInput = document.getElementById("reply-input");
-    if (replyInput && replyInput.value.trim() !== "") {
-      createPost(replyInput.value, currentReplyToId);
-      replyInput.value = "";
-      setDisplay("reply-modal", "none");
-    }
-  });
-
-  // サインアップ画面とログイン画面の切り替え
-  safeAddListener("to-signup", "click", () => {
-    setDisplay("login-card", "none");
-    setDisplay("signup-card", "block");
-  });
-  safeAddListener("to-login", "click", () => {
-    setDisplay("signup-card", "none");
-    setDisplay("login-card", "block");
-  });
-
-  // --- プロフィール編集関連のイベント ---
-  safeAddListener("current-user-avatar", "click", () => {
-    if (!currentUserData) return;
-    const nameInput = document.getElementById("edit-display-name");
-    if (nameInput) nameInput.value = currentUserData.displayName || "";
-    setDisplay("profile-modal", "flex");
-  });
-
-  safeAddListener("close-profile-modal", "click", () => {
-    setDisplay("profile-modal", "none");
-  });
-
-  // プロフィール情報の保存処理
-  safeAddListener("btn-save-profile", "click", async () => {
-    if (!currentUserData) return;
-    const newName = document.getElementById("edit-display-name")?.value.trim();
-    const avatarFile = document.getElementById("edit-avatar-file")?.files[0];
-
-    if (!newName) return alert("お名前を入力してね！");
-
-    try {
-      let finalPhotoUrl = currentUserData.photoURL || "🧪";
-      if (avatarFile) {
-        finalPhotoUrl = await compressAndConvertToBase64(avatarFile);
-      }
-
-      const updates = {
-        [`users/${currentUserData.uid}/displayName`]: newName,
-        [`users/${currentUserData.uid}/photoURL`]: finalPhotoUrl
-      };
-
-      await update(ref(db), updates);
-      
-      // グローバルデータを更新
-      currentUserData.displayName = newName;
-      currentUserData.photoURL = finalPhotoUrl;
-
-      // 画面上のアバターと表示名を更新
-      showApp(auth.currentUser, currentUserData);
-
-      setDisplay("profile-modal", "none");
-      alert("プロフィールを更新したよ！");
-    } catch (e) {
-      alert("更新に失敗しちゃいました: " + e.message);
-    }
-  });
-
-});
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pas
