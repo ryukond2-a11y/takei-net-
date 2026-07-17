@@ -548,16 +548,42 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null,
   }
 }
 
+// ==========================================
+// 📌 新規投稿ボタン（画像対応・リセット機能付き）
+// ==========================================
 const submitPostBtn = document.getElementById("submit-post");
 if (submitPostBtn) {
   submitPostBtn.addEventListener("click", async () => {
     const input = document.getElementById("post-input");
+    const imageInput = document.getElementById("post-image-file"); // 📸 HTMLの画像ファイル選択を取得
     if (!input) return;
-    const content = input.value.trim();
-    if (!content) return;
 
-    await submitPostData(content, null, currentQuoteTargetId);
+    const content = input.value.trim();
+    const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
+
+    // 💡 文字も画像も、両方とも空っぽなら何もしない
+    if (!content && !imageFile) return;
+
+    let imageBase64 = null;
+    if (imageFile) {
+      try {
+        // 画像を Base64 文字列に変換
+        imageBase64 = await toBase64(imageFile);
+      } catch (e) {
+        console.error("画像の変換に失敗しました:", e);
+        alert("画像の読み込みに失敗しました。");
+        return;
+      }
+    }
+
+    // 🚀 送信処理！4番目の引数に imageBase64 をしっかり渡す
+    await submitPostData(content, null, currentQuoteTargetId, imageBase64);
+
+    // ✨ 送信完了したら、すべてをきれいにリセット！
     input.value = "";
+    if (imageInput) {
+      imageInput.value = ""; // 📸 これで上に残っていたファイル名が消えて「選択されていません」に戻るよ！
+    }
     currentQuoteTargetId = null;
     setDisplay("quote-preview", "none");
   });
@@ -571,6 +597,9 @@ if (closeQuotePreviewBtn) {
   });
 }
 
+// ==========================================
+// 📌 返信（リプライ）ボタンの送信処理
+// ==========================================
 const submitReplyBtn = document.getElementById("submit-reply");
 if (submitReplyBtn) {
   submitReplyBtn.addEventListener("click", async () => {
@@ -579,7 +608,8 @@ if (submitReplyBtn) {
     const content = input.value.trim();
     if (!content) return;
 
-    await submitPostData(content, currentReplyTargetId, null);
+    // 返信時は画像なし（null）で送信
+    await submitPostData(content, currentReplyTargetId, null, null);
     input.value = "";
     currentReplyTargetId = null;
     setDisplay("reply-modal", "none");
