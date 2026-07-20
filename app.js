@@ -68,7 +68,7 @@ function promptCategoryQuiz(targetCat) {
 }
 
 // 既存の category-tab イベントハンドラを以下に置き換え
-const tabElements = document.querySelectorAll(".category-tab");
+tabElements = document.querySelectorAll(".category-tab");
 tabElements.forEach(tab => {
   tab.addEventListener("click", (e) => {
     const selectedCat = e.target.getAttribute("data-category");
