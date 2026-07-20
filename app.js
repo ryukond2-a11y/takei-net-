@@ -48,7 +48,23 @@ const categoryConfig = {
     answers: ["武井健二", "武井 健二"]
   }
 };
+// 通知許可を求める関数を作っておく
+async function requestNotificationPermission() {
+  if (!("Notification" in window)) {
+    alert("お使いのブラウザは通知に対応していません。");
+    return;
+  }
+  
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    alert("通知が有効になりました！");
+  } else if (permission === "denied") {
+    alert("通知がブロックされています。ブラウザの設定から許可してください。");
+  }
+}
 
+// 💡 画面上の「通知を有効化」ボタン等に割り当てる
+// document.getElementById("btn-enable-notif")?.addEventListener("click", requestNotificationPermission);
 function promptCategoryQuiz(targetCat) {
   const config = categoryConfig[targetCat];
   if (!config) return true; // 設定がないカテゴリはスルー
@@ -801,9 +817,14 @@ div.onclick = () => {
   });
 }
 
-// --- 📩 DMチャット画面を開く関数 ---
 function openDmChatWith(partnerUid, partnerName) {
   activeDmChatPartnerId = partnerUid;
+
+  // 💡 ここを追加！DMリストを隠してチャット画面を開く
+  setDisplay("dm-users-list", "none");
+  setDisplay("dm-chat-window", "flex");
+  const form = document.querySelector(".dm-start-form");
+  if (form) form.style.display = "none";
 
   const titleEl = document.getElementById("dm-chat-title");
   if (titleEl) titleEl.innerText = partnerName;
@@ -816,7 +837,6 @@ function openDmChatWith(partnerUid, partnerName) {
 
   const roomRef = ref(db, `direct_messages/${roomKey}`);
   
-  // リアルタイムでメッセージ変更を監視
   onValue(roomRef, (snapshot) => {
     container.innerHTML = "";
     const data = snapshot.val();
@@ -844,20 +864,16 @@ function openDmChatWith(partnerUid, partnerName) {
       bubble.style.background = isMe ? "#1d9bf0" : "#2f3336";
       bubble.style.color = "white";
 
-      // 🖼️ 画像が含まれている場合の表示処理
       let imageHTML = "";
       if (msg.image) {
         imageHTML = `<img src="${msg.image}" style="max-width:100%; border-radius:12px; margin-bottom:5px; display:block;">`;
       }
 
-      // テキストと画像を両方表示
       bubble.innerHTML = `${imageHTML}${msg.text ? `<div>${msg.text}</div>` : ""}`;
-      
       wrap.appendChild(bubble);
       container.appendChild(wrap);
     });
 
-    // 最新メッセージまで自動スクロール
     container.scrollTop = container.scrollHeight;
   });
 }
