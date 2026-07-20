@@ -297,14 +297,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// ブラウザ通知の許可を求める関数
-function requestNotificationPermission() {
-  if ("Notification" in window) {
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }
-}
+
 
 
 // --- 📱 タイムライン表示 ＆ 引用機能・いいね制限の修正 ---
