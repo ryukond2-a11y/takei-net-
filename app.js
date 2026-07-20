@@ -48,7 +48,7 @@ const categoryConfig = {
     answers: ["武井健二", "武井 健二"]
   }
 };
-const unlockedCategories = new Set();
+
 function promptCategoryQuiz(targetCat) {
   const config = categoryConfig[targetCat];
   if (!config) return true; // 設定がないカテゴリはスルー
