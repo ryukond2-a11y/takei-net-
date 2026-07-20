@@ -778,38 +778,42 @@ function loadDmUserList() {
   });
 }
 
-function openDmChatWith(partnerId, partnerName) {
-  activeDmChatPartnerId = partnerId;
-  setDisplay("dm-users-list", "none");
-  const form = document.querySelector(".dm-start-form");
-  if (form) form.style.display = "none";
-  setDisplay("dm-chat-window", "flex");
+// --- 📩 DMチャット画面を開く関数 ---
+function openDmChatWith(partnerUid, partnerName) {
+  activeDmChatPartnerId = partnerUid;
 
-  const nameEl = document.getElementById("dm-chat-partner-name");
-  if (nameEl) nameEl.innerText = partnerName;
+  const titleEl = document.getElementById("dm-chat-title");
+  if (titleEl) titleEl.innerText = partnerName;
 
-  const myUid = auth.currentUser.uid;
-  const roomKey = myUid < partnerId ? `${myUid}_${partnerId}` : `${partnerId}_${myUid}`;
+  const container = document.getElementById("dm-chat-messages");
+  if (!container) return;
 
-  const msgsRef = ref(db, `direct_messages/${roomKey}`);
-  onValue(msgsRef, (snap) => {
-    const container = document.getElementById("dm-messages-container");
-    if (!container) return;
+  const myUid = auth.currentUser ? auth.currentUser.uid : "";
+  const roomKey = myUid < partnerUid ? `${myUid}_${partnerUid}` : `${partnerUid}_${myUid}`;
+
+  const roomRef = ref(db, `direct_messages/${roomKey}`);
+  
+  // リアルタイムでメッセージ変更を監視
+  onValue(roomRef, (snapshot) => {
     container.innerHTML = "";
-
-    const data = snap.val();
-    if (!data) return;
+    const data = snapshot.val();
+    if (!data) {
+      container.innerHTML = "<div style='text-align:center; color:#71767b; padding:20px;'>メッセージはまだありません。</div>";
+      return;
+    }
 
     Object.keys(data).forEach(k => {
       const msg = data[k];
       const isMe = msg.senderId === myUid;
+
       const wrap = document.createElement("div");
       wrap.style.display = "flex";
-      wrap.style.justifyContent = isMe ? "flex-end" : "flex-start";
+      wrap.style.flexDirection = "column";
+      wrap.style.alignItems = isMe ? "flex-end" : "flex-start";
       wrap.style.width = "100%";
+      wrap.style.marginBottom = "8px";
 
       const bubble = document.createElement("div");
-      bubble.innerText = msg.text;
       bubble.style.padding = "10px 15px";
       bubble.style.borderRadius = "20px";
       bubble.style.maxWidth = "70%";
@@ -817,33 +821,67 @@ function openDmChatWith(partnerId, partnerName) {
       bubble.style.background = isMe ? "#1d9bf0" : "#2f3336";
       bubble.style.color = "white";
 
+      // 🖼️ 画像が含まれている場合の表示処理
+      let imageHTML = "";
+      if (msg.image) {
+        imageHTML = `<img src="${msg.image}" style="max-width:100%; border-radius:12px; margin-bottom:5px; display:block;">`;
+      }
+
+      // テキストと画像を両方表示
+      bubble.innerHTML = `${imageHTML}${msg.text ? `<div>${msg.text}</div>` : ""}`;
+      
       wrap.appendChild(bubble);
       container.appendChild(wrap);
     });
 
+    // 最新メッセージまで自動スクロール
     container.scrollTop = container.scrollHeight;
   });
 }
 
+// --- 📤 DM送信ボタンの処理 ---
 const btnSendDm = document.getElementById("btn-send-dm");
 if (btnSendDm) {
   btnSendDm.addEventListener("click", async () => {
     const input = document.getElementById("dm-input");
+    const imageInput = document.getElementById("dm-image-file"); // 👈 HTMLに置いた <input type="file" id="dm-image-file">
     if (!input || !activeDmChatPartnerId) return;
+
     const text = input.value.trim();
-    if (!text) return;
+    const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
+
+    // テキストも画像もない場合は何もしない
+    if (!text && !imageFile) return;
+
+    let imageBase64 = null;
+    if (imageFile) {
+      try {
+        imageBase64 = await toBase64(imageFile);
+      } catch (e) {
+        alert("画像の変換に失敗しました。");
+        return;
+      }
+    }
 
     const myUid = auth.currentUser.uid;
-    const roomKey = myUid < activeDmChatPartnerId ? `${myUid}_${activeDmChatPartnerId}` : `${activeDmChatPartnerId}_${myUid}`;
+    const roomKey = myUid < activeDmChatPartnerId 
+      ? `${myUid}_${activeDmChatPartnerId}` 
+      : `${activeDmChatPartnerId}_${myUid}`;
 
     const newMsgRef = push(ref(db, `direct_messages/${roomKey}`));
     await set(newMsgRef, {
       senderId: myUid,
       text: text,
+      image: imageBase64,
       createdAt: Date.now()
     });
 
+    // 🔔 相手にDM届いたよ通知を送信
+    sendNotification(activeDmChatPartnerId, "dm", myUid, roomKey);
+
+    // フォームをクリア
     input.value = "";
+    if (imageInput) imageInput.value = "";
   });
 }
 
@@ -889,7 +927,10 @@ function initNotificationObserver() {
         .sort((a, b) => b.createdAt - a.createdAt);
 
       sortedNotifs.forEach(notif => {
-        if (!notif.read) unreadCount++;
+        // 未読（read === false）のみを正しくカウント！
+        if (notif.read === false) {
+          unreadCount++;
+        }
 
         if (listContainer) {
           const div = document.createElement("div");
@@ -898,6 +939,10 @@ function initNotificationObserver() {
           div.style.display = "flex";
           div.style.alignItems = "center";
           div.style.gap = "10px";
+          div.style.cursor = "pointer";
+          
+          // 未読の場合はほんのり青くハイライト
+          if (!notif.read) div.style.backgroundColor = "rgba(29, 155, 240, 0.1)";
 
           get(ref(db, `users/${notif.senderId}`)).then((userSnap) => {
             const uData = userSnap.val() || {};
@@ -905,6 +950,7 @@ function initNotificationObserver() {
             if (notif.type === "like") typeText = "さんがあなたの投稿にいいねしました❤️";
             if (notif.type === "reply") typeText = "さんがあなたに返信しました💬";
             if (notif.type === "quote") typeText = "さんがあなたの投稿を引用しました🔄";
+            if (notif.type === "dm") typeText = "さんからダイレクトメッセージが届きました📩"; // 👈 DM通知を追加！
 
             div.innerHTML = `
               <div style="font-weight: bold; color: #fff;">${uData.displayName || "名無し"}</div>
@@ -912,7 +958,7 @@ function initNotificationObserver() {
             `;
           });
 
-          // 通知を読んだら既読にする処理
+          // クリックしたら既読（read: true）にする
           div.onclick = async () => {
             await update(ref(db, `notifications/${myUid}/${notif.key}`), { read: true });
           };
@@ -922,6 +968,7 @@ function initNotificationObserver() {
       });
     }
 
+    // 画面上のバッジ（赤丸数字）の表示更新
     const notifBadge = document.getElementById("notif-badge");
     const mNotifBadge = document.getElementById("m-notif-badge");
 
@@ -934,7 +981,6 @@ function initNotificationObserver() {
     }
   });
 }
-
 
 // --- 👤 プロフィール画面 & 編集 ---
 async function showUserProfile(uid) {
