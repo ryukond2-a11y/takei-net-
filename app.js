@@ -296,10 +296,6 @@ onAuthStateChanged(auth, (user) => {
     setDisplay("auth-gateway", "flex");
   }
 });
-
-
-
-
 // --- 📱 タイムライン表示 ＆ 引用機能・いいね制限の修正 ---
 function loadUnifiedTimeline() {
   const postsRef = ref(db, "posts");
