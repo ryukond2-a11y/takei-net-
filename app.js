@@ -270,16 +270,6 @@ onAuthStateChanged(auth, (user) => {
 });
 
 
-// --- 🏷️ カテゴリ（スレッド）切り替え ---
-const tabElements = document.querySelectorAll(".category-tab");
-tabElements.forEach(tab => {
-  tab.addEventListener("click", (e) => {
-    tabElements.forEach(t => t.classList.remove("active"));
-    e.target.classList.add("active");
-    currentCategory = e.target.getAttribute("data-category");
-    loadUnifiedTimeline();
-  });
-});
 
 
 // --- 📱 タイムライン表示 ＆ 引用機能・いいね制限の修正 ---
