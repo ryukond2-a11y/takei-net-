@@ -123,7 +123,19 @@ if (toLoginBtn) {
     setDisplay("login-card", "block");
   });
 }
-
+// デバイス（ブラウザ）通知を送信する関数
+function showDeviceNotification(title, body) {
+  // ブラウザが通知に対応していて、許可されている場合のみ実行
+  if ("Notification" in window && Notification.permission === "granted") {
+    // 画面が非表示（裏で開いている/別タブにいる）の時だけ出す場合
+    if (document.hidden) {
+      new Notification(title, {
+        body: body,
+        icon: "🧪" // アイコン画像がある場合はパスを指定（例: "/icon.png"）
+      });
+    }
+  }
+}
 const btnSignup = document.getElementById("btn-signup");
 if (btnSignup) {
   btnSignup.addEventListener("click", async () => {
@@ -269,7 +281,14 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-
+// ブラウザ通知の許可を求める関数
+function requestNotificationPermission() {
+  if ("Notification" in window) {
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }
+}
 
 
 // --- 📱 タイムライン表示 ＆ 引用機能・いいね制限の修正 ---
