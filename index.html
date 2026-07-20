@@ -5,6 +5,82 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>takei.net plus</title>
   <style>
+    /* DMウィンドウ全体 */
+#dm-chat-window {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 60px); /* スマホボトムナビの60px分引く */
+  width: 100%;
+}
+
+/* DMヘッダー */
+.dm-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 15px;
+  border-bottom: 1px solid #2f3336;
+  background: #000;
+  flex-shrink: 0;
+}
+
+/* メッセージスクロール領域 */
+#dm-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  gap: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 入力エリアバー */
+.dm-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #2f3336;
+  background: #000;
+  flex-shrink: 0;
+}
+
+/* 📷 画像選択ボタン（アイコン化） */
+.dm-file-btn {
+  font-size: 20px;
+  cursor: pointer;
+  padding: 5px;
+  user-select: none;
+}
+
+/* テキスト入力欄 */
+#dm-input {
+  flex: 1;
+  min-width: 0; /* フレックスはみ出し防止 */
+  padding: 10px 15px;
+  border-radius: 9999px;
+  border: 1px solid #2f3336;
+  background: #15181c;
+  color: white;
+  outline: none;
+  font-size: 16px; /* iOSの勝手なズームを防ぐため16px */
+}
+
+/* 送信ボタン */
+#btn-send-dm {
+  background: #1d9bf0;
+  color: #fff;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
     /* 🎨 全体基本デザイン */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background-color: #000; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
