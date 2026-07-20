@@ -935,6 +935,24 @@ async function sendNotification(receiverId, type, senderId, postId) {
 
 function initNotificationObserver() {
   const myUid = auth.currentUser ? auth.currentUser.uid : null;
+  // initNotificationObserver 内で、新規未読通知を検知した時に呼び出す
+if (notif.read === false) {
+  unreadCount++;
+  
+  // ▼ デバイス通知を飛ばす（相手の名前と内容）
+  get(ref(db, `users/${notif.senderId}`)).then((userSnap) => {
+    const uData = userSnap.val() || {};
+    const name = uData.displayName || "名無し";
+    let message = "新着通知があります";
+    
+    if (notif.type === "like") message = `${name}さんがあなたの投稿にいいねしました❤️`;
+    if (notif.type === "reply") message = `${name}さんが返信しました💬`;
+    if (notif.type === "quote") message = `${name}さんが引用しました🔄`;
+    if (notif.type === "dm") message = `${name}さんからメッセージが届きました📩`;
+
+    showDeviceNotification("takei.net", message);
+  });
+}
   if (!myUid) return;
 
   const notifRef = ref(db, `notifications/${myUid}`);
