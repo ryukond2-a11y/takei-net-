@@ -935,24 +935,6 @@ async function sendNotification(receiverId, type, senderId, postId) {
 
 function initNotificationObserver() {
   const myUid = auth.currentUser ? auth.currentUser.uid : null;
-  // initNotificationObserver 内で、新規未読通知を検知した時に呼び出す
-if (notif.read === false) {
-  unreadCount++;
-  
-  // ▼ デバイス通知を飛ばす（相手の名前と内容）
-  get(ref(db, `users/${notif.senderId}`)).then((userSnap) => {
-    const uData = userSnap.val() || {};
-    const name = uData.displayName || "名無し";
-    let message = "新着通知があります";
-    
-    if (notif.type === "like") message = `${name}さんがあなたの投稿にいいねしました❤️`;
-    if (notif.type === "reply") message = `${name}さんが返信しました💬`;
-    if (notif.type === "quote") message = `${name}さんが引用しました🔄`;
-    if (notif.type === "dm") message = `${name}さんからメッセージが届きました📩`;
-
-    showDeviceNotification("takei.net", message);
-  });
-}
   if (!myUid) return;
 
   const notifRef = ref(db, `notifications/${myUid}`);
@@ -968,9 +950,23 @@ if (notif.read === false) {
         .sort((a, b) => b.createdAt - a.createdAt);
 
       sortedNotifs.forEach(notif => {
-        // 未読（read === false）のみを正しくカウント！
+        // 未読（read === false）のみを正しくカウント＆デバイス通知
         if (notif.read === false) {
           unreadCount++;
+
+          // ▼【ここに移動】デバイス通知を飛ばす（相手の名前と内容）
+          get(ref(db, `users/${notif.senderId}`)).then((userSnap) => {
+            const uData = userSnap.val() || {};
+            const name = uData.displayName || "名無し";
+            let message = "新着通知があります";
+            
+            if (notif.type === "like") message = `${name}さんがあなたの投稿にいいねしました❤️`;
+            if (notif.type === "reply") message = `${name}さんが返信しました💬`;
+            if (notif.type === "quote") message = `${name}さんが引用しました🔄`;
+            if (notif.type === "dm") message = `${name}さんからメッセージが届きました📩`;
+
+            showDeviceNotification("takei.net", message);
+          });
         }
 
         if (listContainer) {
@@ -991,7 +987,7 @@ if (notif.read === false) {
             if (notif.type === "like") typeText = "さんがあなたの投稿にいいねしました❤️";
             if (notif.type === "reply") typeText = "さんがあなたに返信しました💬";
             if (notif.type === "quote") typeText = "さんがあなたの投稿を引用しました🔄";
-            if (notif.type === "dm") typeText = "さんからダイレクトメッセージが届きました📩"; // 👈 DM通知を追加！
+            if (notif.type === "dm") typeText = "さんからダイレクトメッセージが届きました📩";
 
             div.innerHTML = `
               <div style="font-weight: bold; color: #fff;">${uData.displayName || "名無し"}</div>
@@ -1022,7 +1018,6 @@ if (notif.read === false) {
     }
   });
 }
-
 // --- 👤 プロフィール画面 & 編集 ---
 async function showUserProfile(uid) {
   const userRef = ref(db, `users/${uid}`);
