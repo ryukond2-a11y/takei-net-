@@ -758,10 +758,17 @@ function loadDmUserList() {
           <div style="font-weight: bold;">${uData.displayName || "名無し"}</div>
         `;
 
-        div.onclick = () => {
-          openDmChatWith(partnerUid, uData.displayName || "名無し");
-        };
+// loadDmUserList() 内の修正
+div.onclick = () => {
+  // 画面の表示を切り替える
+  setDisplay("dm-users-list", "none");
+  setDisplay("dm-chat-window", "flex");
+  // 検索フォームを隠す
+  const form = document.querySelector(".dm-start-form");
+  if (form) form.style.display = "none";
 
+  openDmChatWith(partnerUid, uData.displayName || "名無し");
+};
         container.appendChild(div);
       });
     });
