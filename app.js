@@ -689,12 +689,19 @@ if (btnStartChat) {
       }
     }
 
-    if (foundPartner) {
+if (foundPartner) {
       if (foundPartner.uid === auth.currentUser.uid) {
         alert("自分自身とチャットすることはできません！");
         return;
       }
       input.value = "";
+
+      // 画面をチャット表示に切り替える処理を追加！
+      setDisplay("dm-users-list", "none");
+      setDisplay("dm-chat-window", "flex");
+      const form = document.querySelector(".dm-start-form");
+      if (form) form.style.display = "none";
+
       openDmChatWith(foundPartner.uid, foundPartner.displayName);
     } else {
       alert("ユーザーが見つかりませんでした。");
