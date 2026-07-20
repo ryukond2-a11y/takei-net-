@@ -28,7 +28,62 @@ let currentQuoteTargetId = null;
 let currentReplyTargetId = null;
 let activeDmChatPartnerId = null;
 let currentCategory = "general";
+// --- 🔐 スレッド保護設定 & 認証状態管理 ---
+const unlockedCategories = new Set(["general"]); // 全体タイムラインは初期状態で解放
 
+const categoryConfig = {
+  "1a": {
+    name: "1-A",
+    quizQuestion: "クイズ: 1-Aの担任のフルネームは？",
+    answers: ["岡崎靖", "岡崎 靖", "おかざきやすし"]
+  },
+  "takehaya": {
+    name: "竹早全体",
+    quizQuestion: "クイズ: 学年集会が開かれる場所は？",
+    answers: ["学ロビ", "学年ロビー"]
+  },
+  "nakajima": {
+    name: "中島小",
+    quizQuestion: "クイズ: 武井先生のフルネームは？",
+    answers: ["武井健二", "武井 健二"]
+  }
+};
+
+function promptCategoryQuiz(targetCat) {
+  const config = categoryConfig[targetCat];
+  if (!config) return true; // 設定がないカテゴリはスルー
+
+  const answer = prompt(`【${config.name} のアクセス認証】\n\n${config.quizQuestion}`);
+  if (answer === null) return false;
+
+  const cleanAnswer = answer.trim();
+  if (config.answers.includes(cleanAnswer)) {
+    unlockedCategories.add(targetCat);
+    alert("認証成功！スレッドを表示します。");
+    return true;
+  } else {
+    alert("不正解です。アクセスできません。");
+    return false;
+  }
+}
+
+// 既存の category-tab イベントハンドラを以下に置き換え
+const tabElements = document.querySelectorAll(".category-tab");
+tabElements.forEach(tab => {
+  tab.addEventListener("click", (e) => {
+    const selectedCat = e.target.getAttribute("data-category");
+
+    if (!unlockedCategories.has(selectedCat)) {
+      const isSuccess = promptCategoryQuiz(selectedCat);
+      if (!isSuccess) return;
+    }
+
+    tabElements.forEach(t => t.classList.remove("active"));
+    e.target.classList.add("active");
+    currentCategory = selectedCat;
+    loadUnifiedTimeline();
+  });
+});
 // 表示切り替えユーティリティ
 function setDisplay(id, val) {
   const el = document.getElementById(id);
