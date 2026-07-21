@@ -806,10 +806,10 @@ div.onclick = () => {
   });
 }
 
+// 💬 チャット画面を開いて messages を読み込む
 function openDmChatWith(partnerUid, partnerName) {
   activeDmChatPartnerId = partnerUid;
 
-  // 💡 ここを追加！DMリストを隠してチャット画面を開く
   setDisplay("dm-users-list", "none");
   setDisplay("dm-chat-window", "flex");
   const form = document.querySelector(".dm-start-form");
@@ -822,10 +822,13 @@ function openDmChatWith(partnerUid, partnerName) {
   if (!container) return;
 
   const myUid = auth.currentUser ? auth.currentUser.uid : "";
-  const roomKey = myUid < partnerUid ? `${myUid}_${partnerUid}` : `${partnerUid}_${myUid}`;
+  if (!myUid || !partnerUid) return;
 
- const roomRef = ref(db, `direct_messages/${roomKey}`);
-  
+  // 🔑 roomKeyをソートして作成（これで送信時と絶対一致する！）
+  const roomKey = [myUid, partnerUid].sort().join("_");
+  const roomRef = ref(db, `direct_messages/${roomKey}`);
+
+  // リアルタイム読み込み
   onValue(roomRef, (snapshot) => {
     container.innerHTML = "";
     const data = snapshot.val();
@@ -834,8 +837,12 @@ function openDmChatWith(partnerUid, partnerName) {
       return;
     }
 
-    Object.keys(data).forEach(k => {
-      const msg = data[k];
+    // メッセージ配列を日付順にソート
+    const msgs = Object.keys(data)
+      .map(k => data[k])
+      .sort((a, b) => (a.timestamp || a.createdAt) - (b.timestamp || b.createdAt));
+
+    msgs.forEach(msg => {
       const isMe = msg.senderId === myUid;
 
       const wrap = document.createElement("div");
