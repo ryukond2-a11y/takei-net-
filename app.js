@@ -1232,7 +1232,10 @@ if (mNavProfile) {
     }
   });
 }
-safeAddListener("btn-back-to-dm-users", "click", () => {
-  setDisplay("dm-chat-window", "none");
-  setDisplay("dm-users-list", "block");
-});
+const btnBackDm = document.getElementById("btn-back-to-dm-users");
+if (btnBackDm) {
+  btnBackDm.addEventListener("click", () => {
+    setDisplay("dm-chat-window", "none");
+    setDisplay("dm-users-list", "block");
+  });
+}
