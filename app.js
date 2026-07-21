@@ -687,52 +687,43 @@ if (submitReplyBtn) {
 
 
 // --- 💬 DMチャット機能 ---
+// 💬 ID検索からDMを開く
 const btnStartChat = document.getElementById("btn-start-chat");
 if (btnStartChat) {
   btnStartChat.addEventListener("click", async () => {
     const input = document.getElementById("dm-target-id-input");
     if (!input) return;
-    const rawTargetId = input.value.trim().toLowerCase();
-    if (!rawTargetId) {
-      alert("ログインIDを入力してください。");
-      return;
-    }
+    const rawTargetId = input.value.trim().toLowerCase().replace("@", "");
+    if (!rawTargetId) return alert("ログインIDを入力してください。");
 
-    if (!auth.currentUser) return;
-
+    const myUid = auth.currentUser.uid;
     const usersRef = ref(db, "users");
     const snapshot = await get(usersRef);
     const users = snapshot.val();
+    
     let foundPartner = null;
     if (users) {
       for (const uid in users) {
-        if (users[uid].userLoginId === rawTargetId) {
+        if (users[uid].userLoginId && users[uid].userLoginId.toLowerCase() === rawTargetId) {
           foundPartner = users[uid];
           break;
         }
       }
     }
 
-if (foundPartner) {
-      if (foundPartner.uid === auth.currentUser.uid) {
+    if (foundPartner) {
+      if (foundPartner.uid === myUid) {
         alert("自分自身とチャットすることはできません！");
         return;
       }
+
       input.value = "";
-
-      // 画面をチャット表示に切り替える処理を追加！
-      setDisplay("dm-users-list", "none");
-      setDisplay("dm-chat-window", "flex");
-      const form = document.querySelector(".dm-start-form");
-      if (form) form.style.display = "none";
-
-      openDmChatWith(foundPartner.uid, foundPartner.displayName);
+      openDmChatWith(foundPartner.uid, foundPartner.displayName || "名無し");
     } else {
       alert("ユーザーが見つかりませんでした。");
     }
   });
 }
-
 // 💬 DMユーザー一覧を表示
 function loadDmUserList() {
   const myUid = auth.currentUser ? auth.currentUser.uid : "";
