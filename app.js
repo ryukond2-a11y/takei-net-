@@ -724,13 +724,14 @@ if (btnStartChat) {
     }
   });
 }
-// 💬 DMユーザー一覧を表示
+// 3. DMユーザー一覧の取得（HTMLの id="dm-users-container" に描画）
 function loadDmUserList() {
   const myUid = auth.currentUser ? auth.currentUser.uid : "";
   if (!myUid) return;
 
   const dmRef = ref(db, "direct_messages");
   onValue(dmRef, async (snapshot) => {
+    // 🛠️ 【修正】HTMLの id="dm-users-container" を取得！
     const container = document.getElementById("dm-users-container");
     if (!container) return;
     container.innerHTML = "";
@@ -741,7 +742,6 @@ function loadDmUserList() {
       return;
     }
 
-    // 自分のUIDが含まれる roomKey を抽出
     const myPartnerUids = [];
     Object.keys(allRooms).forEach(roomKey => {
       if (roomKey.includes(myUid)) {
@@ -758,7 +758,6 @@ function loadDmUserList() {
       return;
     }
 
-    // 相手のユーザー情報を取得して表示
     for (const pUid of myPartnerUids) {
       const uSnap = await get(ref(db, `users/${pUid}`));
       const uData = uSnap.val() || {};
@@ -766,7 +765,7 @@ function loadDmUserList() {
       const div = document.createElement("div");
       div.style.display = "flex";
       div.style.alignItems = "center";
-      div.style.padding = "10px";
+      div.style.padding = "12px 15px";
       div.style.borderBottom = "1px solid #2f3336";
       div.style.cursor = "pointer";
 
@@ -781,7 +780,10 @@ function loadDmUserList() {
 
       div.innerHTML = `
         <div class="avatar" style="width: 40px; height: 40px; border-radius: 50%; background: #2f3336; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; margin-right: 12px; ${avatarStyle}">${avatarText}</div>
-        <div style="font-weight: bold; color: white;">${uData.displayName || "名無し"}</div>
+        <div>
+          <div style="font-weight: bold; color: white;">${uData.displayName || "名無し"}</div>
+          <div style="font-size: 12px; color: #71767b;">@${uData.userLoginId || "unknown"}</div>
+        </div>
       `;
 
       div.onclick = () => {
