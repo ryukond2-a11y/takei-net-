@@ -869,24 +869,38 @@ function openDmChatWith(partnerUid, partnerName) {
   });
 }
 // 2. DMメッセージ送信処理
+// 💬 メッセージ送信
 const btnSendDm = document.getElementById("btn-send-dm");
 if (btnSendDm) {
   btnSendDm.addEventListener("click", async () => {
-    // 🛠️ 【確認】HTMLの id="dm-input" と id="dm-image-file" を参照
     const input = document.getElementById("dm-input");
     const imageInput = document.getElementById("dm-image-file");
     if (!input || !activeDmChatPartnerId) return;
 
     const text = input.value.trim();
-    const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
+    // ファイルが選択されているか確認
+    const imageFile = (imageInput && imageInput.files && imageInput.files.length > 0) ? imageInput.files[0] : null;
 
     if (!text && !imageFile) return;
 
     let imageBase64 = null;
+
+    // 💡 画像が実際に選択されている時だけ変換を行う
     if (imageFile) {
       try {
-        imageBase64 = await compressAndConvertToBase64(imageFile);
+        if (typeof compressAndConvertToBase64 === "function") {
+          imageBase64 = await compressAndConvertToBase64(imageFile);
+        } else {
+          // 圧縮関数がない場合のフォールバック（簡易Base64変換）
+          imageBase64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(imageFile);
+          });
+        }
       } catch (e) {
+        console.error("画像変換エラー:", e);
         alert("画像の変換に失敗しました。");
         return;
       }
@@ -895,7 +909,7 @@ if (btnSendDm) {
     const myUid = auth.currentUser.uid;
     const roomKey = [myUid, activeDmChatPartnerId].sort().join("_");
 
-    // direct_messages に書き込み
+    // direct_messages に送信
     const newMsgRef = push(ref(db, `direct_messages/${roomKey}`));
     await set(newMsgRef, {
       senderId: myUid,
