@@ -793,38 +793,44 @@ function loadDmUserList() {
   });
 }
 
-// 💬 チャット画面を開いて messages を読み込む
+// ==========================================
+// 💬 DM（ダイレクトメッセージ）機能の修正版コード
+// ==========================================
+
+// 1. DMチャット画面を開いてメッセージを読み込む
 function openDmChatWith(partnerUid, partnerName) {
   activeDmChatPartnerId = partnerUid;
 
+  // HTMLの要素に合わせて表示切り替え
   setDisplay("dm-users-list", "none");
   setDisplay("dm-chat-window", "flex");
-  const form = document.querySelector(".dm-start-form");
-  if (form) form.style.display = "none";
 
-  const titleEl = document.getElementById("dm-chat-title");
+  // 🛠️ 【修正】HTMLの id="dm-chat-partner-name" に相手の名前をセット
+  const titleEl = document.getElementById("dm-chat-partner-name");
   if (titleEl) titleEl.innerText = partnerName;
 
-  const container = document.getElementById("dm-chat-messages");
+  // 🛠️ 【修正】HTMLの id="dm-messages-container" を取得！
+  const container = document.getElementById("dm-messages-container");
   if (!container) return;
 
   const myUid = auth.currentUser ? auth.currentUser.uid : "";
   if (!myUid || !partnerUid) return;
 
-  // 🔑 roomKeyをソートして作成（これで送信時と絶対一致する！）
+  // [自分のUID, 相手のUID] をソートして一意の roomKey を作成
   const roomKey = [myUid, partnerUid].sort().join("_");
   const roomRef = ref(db, `direct_messages/${roomKey}`);
 
-  // リアルタイム読み込み
+  // リアルタイムでメッセージを監視・読み込み
   onValue(roomRef, (snapshot) => {
     container.innerHTML = "";
     const data = snapshot.val();
+
     if (!data) {
       container.innerHTML = "<div style='text-align:center; color:#71767b; padding:20px;'>メッセージはまだありません。</div>";
       return;
     }
 
-    // メッセージ配列を日付順にソート
+    // 日時順に並び替え
     const msgs = Object.keys(data)
       .map(k => data[k])
       .sort((a, b) => (a.timestamp || a.createdAt) - (b.timestamp || b.createdAt));
@@ -837,7 +843,6 @@ function openDmChatWith(partnerUid, partnerName) {
       wrap.style.flexDirection = "column";
       wrap.style.alignItems = isMe ? "flex-end" : "flex-start";
       wrap.style.width = "100%";
-      wrap.style.marginBottom = "8px";
 
       const bubble = document.createElement("div");
       bubble.style.padding = "10px 15px";
@@ -857,10 +862,10 @@ function openDmChatWith(partnerUid, partnerName) {
       container.appendChild(wrap);
     });
 
+    // 最新のメッセージの位置まで自動スクロール
     container.scrollTop = container.scrollHeight;
   });
 }
-
 // --- 📤 DM送信ボタンの処理 ---
 // 💬 メッセージ送信
 const btnSendDm = document.getElementById("btn-send-dm");
