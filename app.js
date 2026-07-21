@@ -733,76 +733,72 @@ if (foundPartner) {
   });
 }
 
+// 💬 DMユーザー一覧を表示
 function loadDmUserList() {
-  const directMsgsRef = ref(db, "direct_messages");
-  onValue(directMsgsRef, (snapshot) => {
+  const myUid = auth.currentUser ? auth.currentUser.uid : "";
+  if (!myUid) return;
+
+  const dmRef = ref(db, "direct_messages");
+  onValue(dmRef, async (snapshot) => {
     const container = document.getElementById("dm-users-container");
     if (!container) return;
     container.innerHTML = "";
 
-    const data = snapshot.val();
-    if (!data) {
+    const allRooms = snapshot.val();
+    if (!allRooms) {
       container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>メッセージ履歴がありません。</div>";
       return;
     }
 
-    const myUid = auth.currentUser ? auth.currentUser.uid : "";
-    const activePartnerUids = new Set();
-
-    Object.keys(data).forEach(roomKey => {
+    // 自分のUIDが含まれる roomKey を抽出
+    const myPartnerUids = [];
+    Object.keys(allRooms).forEach(roomKey => {
       if (roomKey.includes(myUid)) {
         const uids = roomKey.split("_");
         const partnerUid = uids.find(id => id !== myUid);
-        if (partnerUid) {
-          activePartnerUids.add(partnerUid);
+        if (partnerUid && !myPartnerUids.includes(partnerUid)) {
+          myPartnerUids.push(partnerUid);
         }
       }
     });
 
-    if (activePartnerUids.size === 0) {
+    if (myPartnerUids.length === 0) {
       container.innerHTML = "<div style='padding:20px; color:#71767b; text-align:center;'>メッセージ履歴がありません。</div>";
       return;
     }
 
-    activePartnerUids.forEach(partnerUid => {
-      const userRef = ref(db, `users/${partnerUid}`);
-      get(userRef).then((uSnap) => {
-        const uData = uSnap.val() || {};
-        const div = document.createElement("div");
-        div.style.display = "flex";
-        div.style.alignItems = "center";
-        div.style.padding = "10px";
-        div.style.borderBottom = "1px solid #2f3336";
-        div.style.cursor = "pointer";
+    // 相手のユーザー情報を取得して表示
+    for (const pUid of myPartnerUids) {
+      const uSnap = await get(ref(db, `users/${pUid}`));
+      const uData = uSnap.val() || {};
 
-        const photoURL = uData.photoURL || "🧪";
-        let avatarStyle = "";
-        let avatarText = "";
-        if (photoURL.startsWith("data:image")) {
-          avatarStyle = `background-image: url(${photoURL}); background-size: cover; background-position: center;`;
-        } else {
-          avatarText = photoURL;
-        }
+      const div = document.createElement("div");
+      div.style.display = "flex";
+      div.style.alignItems = "center";
+      div.style.padding = "10px";
+      div.style.borderBottom = "1px solid #2f3336";
+      div.style.cursor = "pointer";
 
-        div.innerHTML = `
-          <div class="avatar" style="width: 40px; height: 40px; border-radius: 50%; background: #2f3336; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; margin-right: 12px; ${avatarStyle}">${avatarText}</div>
-          <div style="font-weight: bold;">${uData.displayName || "名無し"}</div>
-        `;
+      const photoURL = uData.photoURL || "🧪";
+      let avatarStyle = "";
+      let avatarText = "";
+      if (photoURL.startsWith("data:image")) {
+        avatarStyle = `background-image: url(${photoURL}); background-size: cover; background-position: center;`;
+      } else {
+        avatarText = photoURL;
+      }
 
-// loadDmUserList() 内の修正
-div.onclick = () => {
-  // 画面の表示を切り替える
-  setDisplay("dm-users-list", "none");
-  setDisplay("dm-chat-window", "flex");
-  // 検索フォームを隠す
-  const form = document.querySelector(".dm-start-form");
-  if (form) form.style.display = "none";
+      div.innerHTML = `
+        <div class="avatar" style="width: 40px; height: 40px; border-radius: 50%; background: #2f3336; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; margin-right: 12px; ${avatarStyle}">${avatarText}</div>
+        <div style="font-weight: bold; color: white;">${uData.displayName || "名無し"}</div>
+      `;
 
-  openDmChatWith(partnerUid, uData.displayName || "名無し");
-};
-        container.appendChild(div);
-      });
-    });
+      div.onclick = () => {
+        openDmChatWith(pUid, uData.displayName || "名無し");
+      };
+
+      container.appendChild(div);
+    }
   });
 }
 
