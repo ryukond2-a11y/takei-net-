@@ -1232,3 +1232,7 @@ if (mNavProfile) {
     }
   });
 }
+safeAddListener("btn-back-to-dm-users", "click", () => {
+  setDisplay("dm-chat-window", "none");
+  setDisplay("dm-users-list", "block");
+});
