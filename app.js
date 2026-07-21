@@ -824,7 +824,7 @@ function openDmChatWith(partnerUid, partnerName) {
   const myUid = auth.currentUser ? auth.currentUser.uid : "";
   const roomKey = myUid < partnerUid ? `${myUid}_${partnerUid}` : `${partnerUid}_${myUid}`;
 
-  const roomRef = ref(db, `direct_messages/${roomKey}`);
+ const roomRef = ref(db, `direct_messages/${roomKey}`);
   
   onValue(roomRef, (snapshot) => {
     container.innerHTML = "";
