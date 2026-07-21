@@ -866,11 +866,11 @@ function openDmChatWith(partnerUid, partnerName) {
     container.scrollTop = container.scrollHeight;
   });
 }
-// --- 📤 DM送信ボタンの処理 ---
-// 💬 メッセージ送信
+// 2. DMメッセージ送信処理
 const btnSendDm = document.getElementById("btn-send-dm");
 if (btnSendDm) {
   btnSendDm.addEventListener("click", async () => {
+    // 🛠️ 【確認】HTMLの id="dm-input" と id="dm-image-file" を参照
     const input = document.getElementById("dm-input");
     const imageInput = document.getElementById("dm-image-file");
     if (!input || !activeDmChatPartnerId) return;
@@ -891,10 +891,9 @@ if (btnSendDm) {
     }
 
     const myUid = auth.currentUser.uid;
-    // 🔑 読み込み時と同じ規則で roomKey を生成
     const roomKey = [myUid, activeDmChatPartnerId].sort().join("_");
 
-    // direct_messages に送信
+    // direct_messages に書き込み
     const newMsgRef = push(ref(db, `direct_messages/${roomKey}`));
     await set(newMsgRef, {
       senderId: myUid,
