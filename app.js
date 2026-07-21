@@ -875,23 +875,23 @@ function openDmChatWith(partnerUid, partnerName) {
 }
 
 // --- 📤 DM送信ボタンの処理 ---
+// 💬 メッセージ送信
 const btnSendDm = document.getElementById("btn-send-dm");
 if (btnSendDm) {
   btnSendDm.addEventListener("click", async () => {
     const input = document.getElementById("dm-input");
-    const imageInput = document.getElementById("dm-image-file"); // 👈 HTMLに置いた <input type="file" id="dm-image-file">
+    const imageInput = document.getElementById("dm-image-file");
     if (!input || !activeDmChatPartnerId) return;
 
     const text = input.value.trim();
     const imageFile = imageInput && imageInput.files ? imageInput.files[0] : null;
 
-    // テキストも画像もない場合は何もしない
     if (!text && !imageFile) return;
 
     let imageBase64 = null;
     if (imageFile) {
       try {
-        imageBase64 = await toBase64(imageFile);
+        imageBase64 = await compressAndConvertToBase64(imageFile);
       } catch (e) {
         alert("画像の変換に失敗しました。");
         return;
@@ -899,27 +899,22 @@ if (btnSendDm) {
     }
 
     const myUid = auth.currentUser.uid;
-    const roomKey = myUid < activeDmChatPartnerId 
-      ? `${myUid}_${activeDmChatPartnerId}` 
-      : `${activeDmChatPartnerId}_${myUid}`;
+    // 🔑 読み込み時と同じ規則で roomKey を生成
+    const roomKey = [myUid, activeDmChatPartnerId].sort().join("_");
 
+    // direct_messages に送信
     const newMsgRef = push(ref(db, `direct_messages/${roomKey}`));
     await set(newMsgRef, {
       senderId: myUid,
       text: text,
       image: imageBase64,
-      createdAt: Date.now()
+      timestamp: Date.now()
     });
 
-    // 🔔 相手にDM届いたよ通知を送信
-    sendNotification(activeDmChatPartnerId, "dm", myUid, roomKey);
-
-    // フォームをクリア
     input.value = "";
     if (imageInput) imageInput.value = "";
   });
 }
-
 const btnBackToDmUsers = document.getElementById("btn-back-to-dm-users");
 if (btnBackToDmUsers) {
   btnBackToDmUsers.addEventListener("click", () => {
