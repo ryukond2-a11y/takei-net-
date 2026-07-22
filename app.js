@@ -1,6 +1,27 @@
 // app.js
 import  {initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { 
+  getDatabase, 
+  ref, 
+  query, 
+  limitToLast, 
+  onValue 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+// ※ Firebaseの初期化設定（firebaseConfig や db の定義がある場所）
+// 例:
+// const app = initializeApp(firebaseConfig);
+// const db = getDatabase(app);
+
+// 全データを保持する配列（フィルター切替用）
+let allAnnouncements = [];
+let currentFilter = 'all';
+
+// お知らせデータを監視・取得する関数
+function initAnnouncements() {
+  const NEWS_PATH = 'announcements';
+  // 通信量節約のため、最新20件を取得するクエリ
+  const newsQuery = query(ref(db, NEWS_PATH), limitToLast(20));
 // 全データを保持する配列（フィルター切替用）
 let allAnnouncements = [];
 let currentFilter = 'all';
