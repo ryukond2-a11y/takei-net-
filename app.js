@@ -53,9 +53,10 @@ const firebaseConfig = {
   appId: "1:180284787102:web:4c9880b6930f323a94ee8f",
   measurementId: "G-HM4ELHCT3V"
 };
+const auth = getAuth(app);
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const auth = getAuth(app);
+
 
 // 画面へ描画する関数
 function renderAnnouncements() {
