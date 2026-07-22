@@ -44,7 +44,7 @@ function initAnnouncements() {
   });
 }
 const db = getDatabase(app);
-
+const app = initializeApp(firebaseConfig);
 // 画面へ描画する関数
 function renderAnnouncements() {
   const container = document.getElementById('announcements-container');
