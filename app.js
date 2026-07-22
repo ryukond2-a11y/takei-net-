@@ -11,11 +11,7 @@ const app = initializeApp(firebaseConfig);
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-// ※ Firebaseの初期化設定（firebaseConfig や db の定義がある場所）
-// 例:
-// const app = initializeApp(firebaseConfig);
-// const db = getDatabase(app);
-const app = initializeApp(firebaseConfig);
+
 
 // 全データを保持する配列（フィルター切替用）
 let allAnnouncements = [];
