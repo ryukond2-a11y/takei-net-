@@ -14,7 +14,7 @@ import {
 // 例:
 // const app = initializeApp(firebaseConfig);
 // const db = getDatabase(app);
-
+const app = initializeApp(firebaseConfig);
 // 全データを保持する配列（フィルター切替用）
 let allAnnouncements = [];
 let currentFilter = 'all';
@@ -44,7 +44,7 @@ function initAnnouncements() {
   });
 }
 const db = getDatabase(app);
-const app = initializeApp(firebaseConfig);
+
 // 画面へ描画する関数
 function renderAnnouncements() {
   const container = document.getElementById('announcements-container');
