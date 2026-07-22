@@ -16,7 +16,7 @@ import {
 // 全データを保持する配列（フィルター切替用）
 let allAnnouncements = [];
 let currentFilter = 'all';
-const app = initializeApp(firebaseConfig);
+
 function initAnnouncements() {
   const NEWS_PATH = 'announcements';
   const newsQuery = query(ref(db, NEWS_PATH), limitToLast(20));
