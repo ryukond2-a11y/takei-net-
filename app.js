@@ -1,6 +1,5 @@
 // app.js
 import  {initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { ref, onValue, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 // 全データを保持する配列（フィルター切替用）
 let allAnnouncements = [];
