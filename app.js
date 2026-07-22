@@ -93,6 +93,33 @@ function renderAnnouncements() {
     container.appendChild(card);
   });
 }
+// 「📢 お知らせ」ボタンを押したときの処理
+document.getElementById('nav-announcements')?.addEventListener('click', () => {
+  // 他の画面を隠す
+  document.getElementById('timeline').style.display = 'none';
+  document.getElementById('global-tweet-box').style.display = 'none';
+  document.getElementById('category-tabs-container').style.display = 'none';
+  
+  // お知らせ画面を表示する！
+  document.getElementById('announcements-content').style.display = 'block';
+  document.getElementById('page-title').innerText = 'お知らせ';
+  
+  // お知らせの再描画
+  renderAnnouncements();
+});
+
+// スマホ用ボトムナビ側も同じ処理を設定
+document.getElementById('m-nav-announcements')?.addEventListener('click', () => {
+  document.getElementById('timeline').style.display = 'none';
+  document.getElementById('global-tweet-box').style.display = 'none';
+  document.getElementById('category-tabs-container').style.display = 'none';
+  
+  document.getElementById('announcements-content').style.display = 'block';
+  document.getElementById('page-title').innerText = 'お知らせ';
+  
+  renderAnnouncements();
+});
+
 
 // サブタブ（フィルター）切り替え用関数
 window.filterAnnouncements = function(category) {
