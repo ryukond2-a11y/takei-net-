@@ -56,7 +56,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-
+const auth = getAuth(app);
 // 画面へ描画する関数
 function renderAnnouncements() {
   const container = document.getElementById('announcements-container');
@@ -188,11 +188,8 @@ function escapeHtml(str) {
 initAnnouncements();
 
 
-// --- ⚙️ Firebase設定 ---
 
 
-
-const auth = getAuth(app);
 
 // --- 📍 グローバル状態 ---
 let currentQuoteTargetId = null;
