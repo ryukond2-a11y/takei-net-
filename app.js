@@ -19,19 +19,8 @@ import {
 let allAnnouncements = [];
 let currentFilter = 'all';
 
-// お知らせデータを監視・取得する関数
 function initAnnouncements() {
   const NEWS_PATH = 'announcements';
-  // 通信量節約のため、最新20件を取得するクエリ
-  const newsQuery = query(ref(db, NEWS_PATH), limitToLast(20));
-// 全データを保持する配列（フィルター切替用）
-let allAnnouncements = [];
-let currentFilter = 'all';
-
-// お知らせデータを監視・取得する関数
-function initAnnouncements() {
-  const NEWS_PATH = 'announcements';
-  // 通信量節約のため、最新20件を取得するクエリ
   const newsQuery = query(ref(db, NEWS_PATH), limitToLast(20));
 
   onValue(newsQuery, (snapshot) => {
@@ -44,17 +33,17 @@ function initAnnouncements() {
       return;
     }
 
-    // オブジェクトから配列に変換
     allAnnouncements = Object.keys(data).map(key => ({
       id: key,
       ...data[key]
-    })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); // 新しい順に並べ替え
+    })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     renderAnnouncements();
   }, (error) => {
     console.error("お知らせの取得に失敗しました:", error);
   });
 }
+
 
 // 画面へ描画する関数
 function renderAnnouncements() {
