@@ -7,81 +7,82 @@
   <title>takei.net plus</title>
   <style>
     /* DMウィンドウ全体 */
-#dm-chat-window {
-  display: flex;
-  flex-direction: column;
-  height: calc(100dvh - 60px); /* スマホボトムナビの60px分引く */
-  width: 100%;
-}
+    #dm-chat-window {
+      display: flex;
+      flex-direction: column;
+      height: calc(100dvh - 60px); /* スマホボトムナビの60px分引く */
+      width: 100%;
+    }
 
-/* DMヘッダー */
-.dm-chat-header {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 12px 15px;
-  border-bottom: 1px solid #2f3336;
-  background: #000;
-  flex-shrink: 0;
-}
+    /* DMヘッダー */
+    .dm-chat-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 12px 15px;
+      border-bottom: 1px solid #2f3336;
+      background: #000;
+      flex-shrink: 0;
+    }
 
-/* メッセージスクロール領域 */
-#dm-messages-container {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding: 15px;
-  gap: 12px;
-  -webkit-overflow-scrolling: touch;
-}
+    /* メッセージスクロール領域 */
+    #dm-messages-container {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      padding: 15px;
+      gap: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
 
-/* 入力エリアバー */
-.dm-input-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px;
-  border-top: 1px solid #2f3336;
-  background: #000;
-  flex-shrink: 0;
-}
+    /* 入力エリアバー */
+    .dm-input-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      border-top: 1px solid #2f3336;
+      background: #000;
+      flex-shrink: 0;
+    }
 
-/* 📷 画像選択ボタン（アイコン化） */
-.dm-file-btn {
-  font-size: 20px;
-  cursor: pointer;
-  padding: 5px;
-  user-select: none;
-}
+    /* 📷 画像選択ボタン（アイコン化） */
+    .dm-file-btn {
+      font-size: 20px;
+      cursor: pointer;
+      padding: 5px;
+      user-select: none;
+    }
 
-/* テキスト入力欄 */
-#dm-input {
-  flex: 1;
-  min-width: 0; /* フレックスはみ出し防止 */
-  padding: 10px 15px;
-  border-radius: 9999px;
-  border: 1px solid #2f3336;
-  background: #15181c;
-  color: white;
-  outline: none;
-  font-size: 16px; /* iOSの勝手なズームを防ぐため16px */
-}
+    /* テキスト入力欄 */
+    #dm-input {
+      flex: 1;
+      min-width: 0; /* フレックスはみ出し防止 */
+      padding: 10px 15px;
+      border-radius: 9999px;
+      border: 1px solid #2f3336;
+      background: #15181c;
+      color: white;
+      outline: none;
+      font-size: 16px; /* iOSの勝手なズームを防ぐため16px */
+    }
 
-/* 送信ボタン */
-#btn-send-dm {
-  background: #1d9bf0;
-  color: #fff;
-  border: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
+    /* 送信ボタン */
+    #btn-send-dm {
+      background: #1d9bf0;
+      color: #fff;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
     /* 🎨 全体基本デザイン */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background-color: #000; color: #e7e9ea; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
@@ -109,7 +110,7 @@
     
     /* 📱 スマホ用下部ナビゲーションバー（ボトムナビ） */
     .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: #000; border-top: 1px solid #2f3336; z-index: 99; justify-content: space-around; align-items: center; }
-    .mobile-nav-btn { background: none; border: none; color: #71767b; font-size: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 25%; height: 100%; cursor: pointer; text-decoration: none; position: relative; }
+    .mobile-nav-btn { background: none; border: none; color: #71767b; font-size: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 20%; height: 100%; cursor: pointer; text-decoration: none; position: relative; }
     .mobile-nav-btn.active { color: #1d9bf0; }
     .mobile-nav-btn span { font-size: 10px; margin-top: 2px; }
 
@@ -165,6 +166,19 @@
     .dm-start-form { padding: 15px; border-bottom: 1px solid #2f3336; display: flex; gap: 10px; }
     .dm-start-form input { flex: 1; background: #15181c; border: 1px solid #2f3336; color: #fff; padding: 10px 15px; border-radius: 9999px; outline: none; }
     .dm-start-form button { background: #1d9bf0; color: #fff; border: none; padding: 10px 20px; border-radius: 9999px; font-weight: bold; cursor: pointer; }
+
+    /* 📢 お知らせ UI スタイル */
+    .announcements-wrapper { padding: 15px; }
+    .announcement-card { background: #15181c; border: 1px solid #2f3336; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .announcement-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+    .announcement-title { font-weight: bold; font-size: 16px; color: #f7f9fa; }
+    .announcement-body { color: #e7e9ea; white-space: pre-wrap; line-height: 1.6; font-size: 14px; word-break: break-all; margin-top: 6px; }
+    .announcement-date { font-size: 12px; color: #71767b; margin-top: 10px; text-align: right; }
+    .badge-patch { background: #1d9bf0; color: #fff; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; display: inline-block; }
+    .badge-qa { background: #10b981; color: #fff; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; display: inline-block; }
+    .sub-tabs { display: flex; gap: 8px; margin-bottom: 15px; border-bottom: 1px solid #2f3336; padding-bottom: 10px; }
+    .sub-tab-btn { background: #15181c; color: #71767b; border: 1px solid #2f3336; padding: 6px 14px; border-radius: 9999px; cursor: pointer; font-size: 13px; font-weight: bold; }
+    .sub-tab-btn.active { background: #e7e9ea; color: #000; border-color: #e7e9ea; }
     
     /* 📱 レスポンシブ (タブレット・スマホ対応) */
     @media (max-width: 700px) {
@@ -226,6 +240,7 @@
         <button id="nav-home">🏠 <span>ホーム</span></button>
         <button id="nav-notifications">🔔 <span>通知</span> <span id="notif-badge" style="display: none; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px;">0</span></button>
         <button id="nav-dms">💬 <span>メッセージ</span></button>
+        <button id="nav-announcements">📢 <span>お知らせ</span></button>
       </nav>
       <button id="btn-logout">ログアウト</button>
     </aside>
@@ -238,6 +253,7 @@
         <span id="m-notif-badge" style="display: none; position: absolute; top: 5px; right: 25px; background: red; color: white; border-radius: 50%; padding: 1px 5px; font-size: 9px;">0</span>
       </button>
       <button class="mobile-nav-btn" id="m-nav-dms">💬<span>メッセージ</span></button>
+      <button class="mobile-nav-btn" id="m-nav-announcements">📢<span>お知らせ</span></button>
       <button class="mobile-nav-btn" id="m-nav-profile">👤<span>設定</span></button>
     </nav>
 
@@ -262,7 +278,6 @@
         <textarea id="post-input" placeholder="いまどうしてる？" rows="3"></textarea>
         <!-- 投稿テキストエリアの近くに追加 -->
         <div class="tweet-box-actions" style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
-          <!-- 画像選択ボタン（非表示にしてアイコン等でモディファイしてもOK。まずはシンプルなやつで！） -->
           <input type="file" id="post-image-file" accept="image/*" style="color: #71767b; font-size: 13px;">
         </div>
         <div id="quote-preview" style="display: none; background: #15181c; padding: 10px; border-radius: 12px; position: relative; border: 1px solid #2f3336; margin-bottom: 10px;">
@@ -310,6 +325,19 @@
           </div>
         </div>
       </div>
+
+      <!-- 📢 お知らせ・Q&A 表示エリア -->
+      <div id="announcements-content" style="display: none;" class="announcements-wrapper">
+        <div class="sub-tabs">
+          <button class="sub-tab-btn active" id="subtab-all">すべて</button>
+          <button class="sub-tab-btn" id="subtab-patchnote">🚀 パッチノート</button>
+          <button class="sub-tab-btn" id="subtab-qa">❓ Q&A</button>
+        </div>
+        <div id="announcements-container">
+          <p style="color: #71767b; text-align: center; padding: 20px;">お知らせを読み込み中...</p>
+        </div>
+      </div>
+
     </main>
   </div>
 
