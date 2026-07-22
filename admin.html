@@ -38,6 +38,7 @@
       margin-bottom: 20px;
       border-bottom: 1px solid #2f3e56;
       padding-bottom: 10px;
+      flex-wrap: wrap;
     }
     .tab-btn {
       background: #151f32;
@@ -60,7 +61,7 @@
       display: block;
     }
 
-    .search-box, .danger-zone {
+    .search-box, .form-box, .danger-zone {
       background: #151f32;
       padding: 15px;
       border-radius: 8px;
@@ -70,15 +71,22 @@
     .danger-zone {
       border-color: #dc3545;
     }
-    .search-box input {
+    .search-box input, .form-box input, .form-box select, .form-box textarea {
       padding: 8px 12px;
       border-radius: 4px;
       border: 1px solid #2f3e56;
       background: #000;
       color: #fff;
-      margin-right: 10px;
-      width: 200px;
       margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    .form-box input, .form-box select {
+      width: 100%;
+    }
+    .form-box textarea {
+      width: 100%;
+      height: 100px;
+      resize: vertical;
     }
     button {
       background: #1d9bf0;
@@ -136,6 +144,14 @@
       display: none;
       font-weight: bold;
     }
+    .tag {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .tag-patch { background: #1d9bf0; color: #fff; }
+    .tag-qa { background: #10b981; color: #fff; }
   </style>
 </head>
 <body>
@@ -153,6 +169,7 @@
       <button class="tab-btn active" onclick="switchTab('tab-dm')">💬 DMログ監視</button>
       <button class="tab-btn" onclick="switchTab('tab-posts')">📝 全投稿管理</button>
       <button class="tab-btn" onclick="switchTab('tab-users')">👥 ユーザー凍結・管理</button>
+      <button class="tab-btn" onclick="switchTab('tab-news')">📢 お知らせ・Q&A管理</button>
     </div>
 
     <!-- TAB 1: DMログ -->
@@ -238,13 +255,53 @@
         </table>
       </div>
     </div>
+
+    <!-- TAB 4: お知らせ・パッチノート管理（新規追加！） -->
+    <div id="tab-news" class="tab-content">
+      <div class="form-box">
+        <h3>➕ 新しいお知らせ・Q&Aの投稿</h3>
+        <label>カテゴリ</label>
+        <select id="news-category">
+          <option value="patchnote">🚀 パッチノート (更新履歴)</option>
+          <option value="qa">❓ Q&A (よくある質問)</option>
+        </select>
+        
+        <label>タイトル</label>
+        <input type="text" id="news-title" placeholder="例: v1.2.0 アプデ内容 / ログインできない時は？">
+        
+        <label>本文（改行可）</label>
+        <textarea id="news-content" placeholder="詳細な内容を入力してください..."></textarea>
+        
+        <button id="btn-add-news" style="width: 100%; padding: 12px; margin-top: 10px;">📢 投稿する</button>
+      </div>
+
+      <h3>📋 投稿済みお知らせ一覧</h3>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>投稿日時</th>
+              <th>カテゴリ</th>
+              <th>タイトル</th>
+              <th>本文</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="news-table-body">
+            <tr>
+              <td colspan="5" style="text-align: center; color: #71767b;">お知らせを読み込み中...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, set, remove, update, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // 【重要】ここの設定値がアプリ本体（app.js）と同一か、今一度ご確認ください
     const firebaseConfig = {
       apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
       authDomain: "takei-netplus.firebaseapp.com",
@@ -267,6 +324,7 @@
     const DM_PATH = 'direct_messages'; 
     const USERS_PATH = 'users';
     const POSTS_PATH = 'posts';
+    const NEWS_PATH = 'announcements'; // お知らせ用のDBパス
 
     let allDMs = [];
     let rawUsersData = {}; 
@@ -286,7 +344,7 @@
       });
     };
 
-    // 1. ユーザー監視（安全対策付き）
+    // 1. ユーザー監視
     onValue(ref(db, USERS_PATH), (snapshot) => {
       try {
         rawUsersData = snapshot.val() || {};
@@ -305,7 +363,7 @@
       showError("データベースの読み込み権限がありません。セキュリティルールを確認してください。");
     });
 
-    // 2. DM監視（安全対策・空データ対応）
+    // 2. DM監視
     function loadAndParseDMs() {
       onValue(ref(db, DM_PATH), (snapshot) => {
         try {
@@ -407,7 +465,7 @@
       renderDMLogs(allDMs);
     };
 
-    // 3. 投稿監視（安全対策・空データ対応）
+    // 3. 投稿監視
     onValue(ref(db, POSTS_PATH), (snapshot) => {
       try {
         const postsData = snapshot.val();
@@ -530,6 +588,86 @@
       }
     };
 
+    // 5. お知らせ・Q&A管理機能（新規追加！）
+    document.getElementById('btn-add-news').onclick = async () => {
+      const category = document.getElementById('news-category').value;
+      const title = document.getElementById('news-title').value.trim();
+      const content = document.getElementById('news-content').value.trim();
+
+      if (!title || !content) {
+        alert("タイトルと本文を入力してください。");
+        return;
+      }
+
+      try {
+        await push(ref(db, NEWS_PATH), {
+          category: category,
+          title: title,
+          content: content,
+          createdAt: serverTimestamp()
+        });
+        alert("お知らせを投稿しました！");
+        document.getElementById('news-title').value = '';
+        document.getElementById('news-content').value = '';
+      } catch (err) {
+        alert("投稿エラー: " + err.message);
+      }
+    };
+
+    // お知らせ一覧の取得・監視
+    onValue(ref(db, NEWS_PATH), (snapshot) => {
+      const newsData = snapshot.val();
+      const tbody = document.getElementById('news-table-body');
+      tbody.innerHTML = '';
+
+      if (!newsData) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #71767b;">お知らせはありません。</td></tr>`;
+        return;
+      }
+
+      const newsList = [];
+      Object.keys(newsData).forEach(id => {
+        const item = newsData[id];
+        if (item) {
+          newsList.push({
+            id: id,
+            category: item.category || 'patchnote',
+            title: item.title || '',
+            content: item.content || '',
+            createdAt: item.createdAt || 0,
+            timestamp: item.createdAt ? new Date(item.createdAt).toLocaleString('ja-JP') : '不明'
+          });
+        }
+      });
+
+      newsList.sort((a, b) => b.createdAt - a.createdAt);
+      newsList.forEach(item => {
+        const tr = document.createElement('tr');
+        const isPatch = item.category === 'patchnote';
+        const tagHtml = isPatch 
+          ? `<span class="tag tag-patch">パッチノート</span>` 
+          : `<span class="tag tag-qa">Q&A</span>`;
+
+        tr.innerHTML = `
+          <td style="white-space: nowrap;">${item.timestamp}</td>
+          <td>${tagHtml}</td>
+          <td style="font-weight: bold;">${item.title}</td>
+          <td style="word-break: break-all; white-space: pre-wrap;">${item.content}</td>
+          <td><button class="danger-btn" onclick="deleteNews('${item.id}')">削除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+
+    window.deleteNews = function(newsId) {
+      if (confirm("このお知らせを削除しますか？")) {
+        remove(ref(db, `${NEWS_PATH}/${newsId}`))
+          .then(() => alert("削除しました。"))
+          .catch(err => alert("削除失敗: " + err.message));
+      }
+    };
+
+    // タブ切り替え処理
     window.switchTab = function(tabId) {
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
