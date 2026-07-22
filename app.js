@@ -7,11 +7,11 @@ import {
   limitToLast, 
   onValue 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-const app = initializeApp(firebaseConfig);
+
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-
+const app = initializeApp(firebaseConfig);
 
 // 全データを保持する配列（フィルター切替用）
 let allAnnouncements = [];
