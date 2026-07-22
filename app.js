@@ -1,5 +1,103 @@
 // app.js
 import  {initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { ref, onValue, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+// 全データを保持する配列（フィルター切替用）
+let allAnnouncements = [];
+let currentFilter = 'all';
+
+// お知らせデータを監視・取得する関数
+function initAnnouncements() {
+  const NEWS_PATH = 'announcements';
+  // 通信量節約のため、最新20件を取得するクエリ
+  const newsQuery = query(ref(db, NEWS_PATH), limitToLast(20));
+
+  onValue(newsQuery, (snapshot) => {
+    const data = snapshot.val();
+    const container = document.getElementById('announcements-container');
+
+    if (!data) {
+      container.innerHTML = '<p style="color: #71767b; text-align: center;">現在お知らせはありません。</p>';
+      allAnnouncements = [];
+      return;
+    }
+
+    // オブジェクトから配列に変換
+    allAnnouncements = Object.keys(data).map(key => ({
+      id: key,
+      ...data[key]
+    })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); // 新しい順に並べ替え
+
+    renderAnnouncements();
+  }, (error) => {
+    console.error("お知らせの取得に失敗しました:", error);
+  });
+}
+
+// 画面へ描画する関数
+function renderAnnouncements() {
+  const container = document.getElementById('announcements-container');
+  container.innerHTML = '';
+
+  // フィルター処理
+  const filteredList = allAnnouncements.filter(item => {
+    if (currentFilter === 'all') return true;
+    return item.category === currentFilter;
+  });
+
+  if (filteredList.length === 0) {
+    container.innerHTML = '<p style="color: #71767b; text-align: center;">該当するお知らせはありません。</p>';
+    return;
+  }
+
+  filteredList.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'announcement-card';
+
+    const isPatch = item.category === 'patchnote';
+    const badgeClass = isPatch ? 'badge-patch' : 'badge-qa';
+    const badgeText = isPatch ? 'パッチノート' : 'Q&A';
+    const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleString('ja-JP') : '';
+
+    card.innerHTML = `
+      <div class="announcement-header">
+        <span class="${badgeClass}">${badgeText}</span>
+        <span class="announcement-title">${escapeHtml(item.title)}</span>
+      </div>
+      <div class="announcement-body">${escapeHtml(item.content)}</div>
+      <div class="announcement-date">${dateStr}</div>
+    `;
+
+    container.appendChild(card);
+  });
+}
+
+// サブタブ（フィルター）切り替え用関数
+window.filterAnnouncements = function(category) {
+  currentFilter = category;
+  
+  // ボタンの見た目を更新
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+  if (event && event.target) {
+    event.target.classList.add('active');
+  }
+
+  renderAnnouncements();
+};
+
+// XSS対策のエスケープ関数
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// アプリ起動時に初期化を実行
+initAnnouncements();
 import {
   getDatabase, ref, set, push, onValue, update, runTransaction, child, get, remove
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
