@@ -120,6 +120,44 @@ document.getElementById('m-nav-announcements')?.addEventListener('click', () => 
   renderAnnouncements();
 });
 
+// サブタブボタンのクリック判定
+document.getElementById('subtab-all')?.addEventListener('click', (e) => {
+  currentFilter = 'all';
+  updateSubTabActive(e.target);
+  renderAnnouncements();
+});
+
+document.getElementById('subtab-patchnote')?.addEventListener('click', (e) => {
+  currentFilter = 'patchnote';
+  updateSubTabActive(e.target);
+  renderAnnouncements();
+});
+
+document.getElementById('subtab-qa')?.addEventListener('click', (e) => {
+  currentFilter = 'qa';
+  updateSubTabActive(e.target);
+  renderAnnouncements();
+});
+
+// ボタンの見た目（activeクラス）を切り替える関数
+function updateSubTabActive(targetBtn) {
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+  targetBtn.classList.add('active');
+}
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    setDisplay("auth-gateway", "none");
+    setDisplay("app-container", "flex");
+
+    // ★ここで初期化を実行！
+    initAnnouncements();
+    
+    loadUnifiedTimeline();
+  } else {
+    setDisplay("app-container", "none");
+    setDisplay("auth-gateway", "flex");
+  }
+});
 
 // サブタブ（フィルター）切り替え用関数
 window.filterAnnouncements = function(category) {
