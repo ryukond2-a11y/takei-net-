@@ -41,7 +41,17 @@ function initAnnouncements() {
     console.error("お知らせの取得に失敗しました:", error);
   });
 }
-
+const firebaseConfig = {
+  apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
+  authDomain: "takei-netplus.firebaseapp.com",
+  databaseURL: "https://takei-netplus-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "takei-netplus",
+  storageBucket: "takei-netplus.firebasestorage.app",
+  messagingSenderId: "180284787102",
+  appId: "1:180284787102:web:4c9880b6930f323a94ee8f",
+  measurementId: "G-HM4ELHCT3V"
+};
+const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 // 画面へ描画する関数
@@ -111,16 +121,6 @@ initAnnouncements();
 
 
 // --- ⚙️ Firebase設定 ---
-const firebaseConfig = {
-  apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
-  authDomain: "takei-netplus.firebaseapp.com",
-  databaseURL: "https://takei-netplus-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "takei-netplus",
-  storageBucket: "takei-netplus.firebasestorage.app",
-  messagingSenderId: "180284787102",
-  appId: "1:180284787102:web:4c9880b6930f323a94ee8f",
-  measurementId: "G-HM4ELHCT3V"
-};
 
 
 
