@@ -8,9 +8,6 @@ import {
   onValue 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import {
-  getDatabase, ref, set, push, onValue, update, runTransaction, child, get, remove
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 // ※ Firebaseの初期化設定（firebaseConfig や db の定義がある場所）
