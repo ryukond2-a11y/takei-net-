@@ -11,12 +11,12 @@ import {
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-const app = initializeApp(firebaseConfig);
+
 
 // 全データを保持する配列（フィルター切替用）
 let allAnnouncements = [];
 let currentFilter = 'all';
-
+const app = initializeApp(firebaseConfig);
 function initAnnouncements() {
   const NEWS_PATH = 'announcements';
   const newsQuery = query(ref(db, NEWS_PATH), limitToLast(20));
