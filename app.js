@@ -43,8 +43,9 @@ function initAnnouncements() {
     console.error("お知らせの取得に失敗しました:", error);
   });
 }
-const db = getDatabase(app);
 const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 // 画面へ描画する関数
 function renderAnnouncements() {
   const container = document.getElementById('announcements-container');
