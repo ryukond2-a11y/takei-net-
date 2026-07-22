@@ -123,7 +123,7 @@ const firebaseConfig = {
   measurementId: "G-HM4ELHCT3V"
 };
 
-const app = initializeApp(firebaseConfig);
+
 
 const auth = getAuth(app);
 
