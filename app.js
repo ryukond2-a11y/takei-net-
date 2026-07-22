@@ -55,6 +55,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
 // 画面へ描画する関数
 function renderAnnouncements() {
