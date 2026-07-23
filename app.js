@@ -197,13 +197,19 @@ let currentReplyTargetId = null;
 let activeDmChatPartnerId = null;
 let currentCategory = "general";
 // --- 🔐 スレッド保護設定 & 認証状態管理 ---
+// --- 🔐 スレッド保護設定 & 認証状態管理 ---
 const unlockedCategories = new Set(["general"]); // 全体タイムラインは初期状態で解放
 
 const categoryConfig = {
   "1a": {
     name: "1-A",
-    quizQuestion: "クイズ: 1-Aの担任のフルネームは？",
-    answers: ["岡崎靖", "岡崎 靖", "おかざきやすし"]
+    quizQuestion: "クイズ: 1-Aの担任の名前は？",
+    answers: ["岡崎靖", "岡崎 靖", "おかざきやすし", "おかざき", "岡崎"]
+  },
+  "kaichi_tokorozawa": {
+    name: "開智所沢",
+    quizQuestion: "クイズ: 校長先生のあだ名は？",
+    answers: ["クランパ", "くらんぱ"]
   },
   "takehaya": {
     name: "竹早全体",
@@ -216,6 +222,7 @@ const categoryConfig = {
     answers: ["武井健二", "武井 健二"]
   }
 };
+
 // 通知許可を求める関数を作っておく
 async function requestNotificationPermission() {
   if (!("Notification" in window)) {
