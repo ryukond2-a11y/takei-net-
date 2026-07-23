@@ -6,9 +6,10 @@ import {
   query, 
   limitToLast, 
   onValue,
-  get // 👈 これを追加！
+  get,
+  push, // 👈 これを追加
+  set   // 👈 これももし無ければ追加
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
 
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged
