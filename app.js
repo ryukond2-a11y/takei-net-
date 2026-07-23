@@ -209,7 +209,7 @@ const categoryConfig = {
   "kaichi_tokorozawa": {
     name: "開智所沢",
     quizQuestion: "クイズ: 校長先生のあだ名は？",
-    answers: ["クランパ", "くらんぱ"]
+    answers: ["グランパ", "ぐらんぱ"]
   },
   "takehaya": {
     name: "竹早全体",
