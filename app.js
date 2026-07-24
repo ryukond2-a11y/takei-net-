@@ -602,7 +602,7 @@ function renderPost(post, isThreadDetail = false) {
       });
     }
 
-    // 引用ボタン
+// 引用ボタン
     const quoteBtn = postElement.querySelector(`#action-quote-${post.id}`);
     if (quoteBtn) {
       quoteBtn.addEventListener("click", (e) => {
@@ -618,7 +618,26 @@ function renderPost(post, isThreadDetail = false) {
       });
     }
 
-// ❤️ いいねボタン（1人1個まで！）
+    // 📊 投稿データ（いいね数・返信数・引用数）のリアルタイム監視・表示更新
+    const postRef = ref(db, `posts/${post.id}`);
+    onValue(postRef, (postSnap) => {
+      const postData = postSnap.val();
+      if (postData) {
+        // ❤️ いいね数の更新
+        const countNumSpan = postElement.querySelector(`#like-count-num-${post.id}`);
+        if (countNumSpan) countNumSpan.innerText = postData.likeCount || 0;
+
+        // 💬 返信数の更新
+        const replySpan = postElement.querySelector(`#action-reply-${post.id} span`);
+        if (replySpan) replySpan.innerText = postData.replyCount || 0;
+
+        // 🔄 引用数の更新
+        const quoteSpan = postElement.querySelector(`#action-quote-${post.id} span`);
+        if (quoteSpan) quoteSpan.innerText = postData.quoteCount || 0;
+      }
+    });
+
+    // ❤️ いいねボタン（1人1個まで！）
     const likeBtn = postElement.querySelector(`#action-like-${post.id}`);
     if (likeBtn && myUid) {
       const userLikeRef = ref(db, `likes/${post.id}/${myUid}`);
@@ -632,19 +651,7 @@ function renderPost(post, isThreadDetail = false) {
         }
       });
 
-      // ② 投稿自体の変更（likeCount）をリアルタイム監視して画面の数字を更新
-      const postRef = ref(db, `posts/${post.id}`);
-      onValue(postRef, (postSnap) => {
-        const postData = postSnap.val();
-        if (postData) {
-          const countNumSpan = postElement.querySelector(`#like-count-num-${post.id}`);
-          if (countNumSpan) {
-            countNumSpan.innerText = postData.likeCount || 0;
-          }
-        }
-      });
-
-      // ③ いいねボタンのクリックイベント
+      // ② いいねボタンのクリックイベント
       likeBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const likeCheck = await get(userLikeRef);
@@ -673,6 +680,7 @@ function renderPost(post, isThreadDetail = false) {
         }
       });
     }
+
     // 🔗 引用元の実体読み込み処理（クラッシュ対策の安全版）
     if (post.quotedPostId) {
       const quoteRef = ref(db, `posts/${post.quotedPostId}`);
