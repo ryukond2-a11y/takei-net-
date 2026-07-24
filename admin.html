@@ -3,678 +3,290 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>takei.net plus - 管理者用総合パネル</title>
+  <title>Takei.net 管理者ダッシュボード</title>
   <style>
-    body {
-      background-color: #0b0f19;
-      color: #f3f4f6;
-      font-family: sans-serif;
-      margin: 0;
-      padding: 20px;
+    :root {
+      --bg-color: #000000;
+      --card-bg: #16181c;
+      --border-color: #2f3336;
+      --text-main: #e7e9ea;
+      --text-sub: #71767b;
+      --primary: #1d9bf0;
+      --danger: #f4212e;
+      --warning: #f59e0b;
+      --success: #10b981;
     }
-    h1 {
-      border-bottom: 2px solid #1d9bf0;
-      padding-bottom: 10px;
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding-bottom: 40px;
+    }
+
+    /* ヘッダー */
+    header {
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-    .back-btn {
-      display: inline-block;
-      margin-bottom: 20px;
-      color: #1d9bf0;
-      text-decoration: none;
-      font-weight: bold;
-    }
-    
-    /* タブ切り替え */
-    .tabs {
+
+    header h1 {
+      font-size: 18px;
+      color: var(--text-main);
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-      border-bottom: 1px solid #2f3e56;
-      padding-bottom: 10px;
-      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
     }
+
+    /* コンテナ */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* タブ切り替え */
+    .admin-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
     .tab-btn {
-      background: #151f32;
-      color: #71767b;
-      border: 1px solid #2f3e56;
-      padding: 10px 20px;
+      background: none;
+      border: none;
+      color: var(--text-sub);
+      font-weight: bold;
+      padding: 8px 16px;
       border-radius: 20px;
       cursor: pointer;
-      font-weight: bold;
+      white-space: nowrap;
+      font-size: 14px;
+      transition: 0.2s;
     }
+
     .tab-btn.active {
-      background: #1d9bf0;
+      background: var(--primary);
       color: #fff;
-      border-color: #1d9bf0;
     }
-    .tab-content {
+
+    /* カード・セクション */
+    .panel-section {
       display: none;
     }
-    .tab-content.active {
+
+    .panel-section.active {
       display: block;
     }
 
-    .search-box, .form-box, .danger-zone {
-      background: #151f32;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      border: 1px solid #2f3e56;
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
     }
-    .danger-zone {
-      border-color: #dc3545;
+
+    .card h2 {
+      font-size: 16px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .search-box input, .form-box input, .form-box select, .form-box textarea {
-      padding: 8px 12px;
-      border-radius: 4px;
-      border: 1px solid #2f3e56;
+
+    /* フォーム要素 */
+    input[type="text"], textarea, select {
+      width: 100%;
       background: #000;
-      color: #fff;
-      margin-bottom: 10px;
-      box-sizing: border-box;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+      color: var(--text-main);
+      font-size: 14px;
+      margin-bottom: 12px;
     }
-    .form-box input, .form-box select {
-      width: 100%;
-    }
-    .form-box textarea {
-      width: 100%;
-      height: 100px;
+
+    textarea {
       resize: vertical;
+      min-height: 80px;
     }
-    button {
-      background: #1d9bf0;
-      color: white;
+
+    button.btn-submit {
+      background: var(--primary);
+      color: #fff;
       border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
+      padding: 10px 16px;
+      border-radius: 20px;
       font-weight: bold;
+      cursor: pointer;
+      width: 100%;
     }
-    button.danger-btn {
-      background: #dc3545;
+
+    /* リスト＆テーブル（スマホ対応） */
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
-    button.danger-btn:hover {
-      background: #bd2130;
-    }
-    button.warning-btn {
-      background: #f59e0b;
-    }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      background: #151f32;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    th, td {
-      padding: 12px;
       text-align: left;
-      border-bottom: 1px solid #2f3e56;
+      font-size: 13px;
     }
+
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
     th {
-      background-color: #1e2d4a;
-      color: #1d9bf0;
+      color: var(--text-sub);
     }
-    tr:hover {
-      background-color: #1c2a43;
-    }
-    
+
+    /* バッジ */
     .badge {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      background-color: #ef4444;
-      border-radius: 50%;
-      margin-left: 8px;
-      display: none;
-    }
-    .error-msg {
-      background: #fecaca;
-      color: #991b1b;
-      padding: 12px;
-      border-radius: 6px;
-      margin-bottom: 20px;
-      display: none;
-      font-weight: bold;
-    }
-    .tag {
       padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
+      border-radius: 10px;
+      font-size: 11px;
       font-weight: bold;
+      display: inline-block;
     }
-    .tag-patch { background: #1d9bf0; color: #fff; }
-    .tag-qa { background: #10b981; color: #fff; }
+    .badge-user { background: #1e293b; color: #94a3b8; }
+    .badge-banned { background: rgba(244, 33, 46, 0.2); color: var(--danger); }
+
+    /* 操作ボタン */
+    .btn-action {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-action.danger {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    /* 投稿監視用カード（スマホ表示向け） */
+    .post-item {
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 0;
+    }
+    .post-item:last-child {
+      border-bottom: none;
+    }
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-bottom: 4px;
+    }
+    .post-body {
+      font-size: 14px;
+      margin-bottom: 8px;
+      word-break: break-all;
+    }
+
+    /* ローディング */
+    .loading {
+      text-align: center;
+      color: var(--text-sub);
+      padding: 20px;
+    }
   </style>
 </head>
 <body>
+
+  <header>
+    <h1>⚙️ 管理者ダッシュボード</h1>
+    <a href="index.html" style="color: var(--primary); text-decoration: none; font-size: 13px;">← アプリに戻る</a>
+  </header>
+
   <div class="container">
-    <a href="index.html" class="back-btn">← アプリに戻る</a>
-    <h1>
-      <span>⚙️ 管理者専用総合パネル <span id="dm-alert-badge" class="badge"></span></span>
-      <button id="btn-request-notif" style="font-size: 12px; background: #374151;">🔔 デスクトップ通知を有効にする</button>
-    </h1>
-
-    <!-- 接続エラー等が発生した場合の表示エリア -->
-    <div id="connection-error" class="error-msg"></div>
-
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('tab-dm')">💬 DMログ監視</button>
-      <button class="tab-btn" onclick="switchTab('tab-posts')">📝 全投稿管理</button>
-      <button class="tab-btn" onclick="switchTab('tab-users')">👥 ユーザー凍結・管理</button>
-      <button class="tab-btn" onclick="switchTab('tab-news')">📢 お知らせ・Q&A管理</button>
+    
+    <!-- タブ切替ナビゲーション -->
+    <div class="admin-tabs">
+      <button class="tab-btn active" onclick="switchTab('announcement')">📢 お知らせ投稿</button>
+      <button class="tab-btn" onclick="switchTab('users')">👥 ユーザー管理</button>
+      <button class="tab-btn" onclick="switchTab('posts')">🗑️ 投稿削除/監視</button>
     </div>
 
-    <!-- TAB 1: DMログ -->
-    <div id="tab-dm" class="tab-content active">
-      <div class="search-box">
-        <h3>DMログの検索・フィルタ</h3>
-        <input type="text" id="search-sender" placeholder="送信者ID (部分一致可)">
-        <input type="text" id="search-receiver" placeholder="受信者ID (部分一致可)">
-        <input type="text" id="search-text" placeholder="メッセージ内容で検索">
-        <button id="btn-search-dm">検索</button>
-        <button id="btn-reset-dm" style="background:#4b5563;">リセット</button>
-      </div>
-      <div style="overflow-x: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>送信日時</th>
-              <th>送信者ID (Sender)</th>
-              <th>受信者ID (Receiver)</th>
-              <th>メッセージ本文</th>
-            </tr>
-          </thead>
-          <tbody id="dm-log-table-body">
-            <tr>
-              <td colspan="4" style="text-align: center; color: #71767b;">ログを読み込み中...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 2: 全投稿 -->
-    <div id="tab-posts" class="tab-content">
-      <div class="danger-zone">
-        <h3>🚨 デンジャーゾーン（全投稿削除）</h3>
-        <p>すべてのタイムライン投稿（posts）がデータベースから完全に消去されます。</p>
-        <button class="danger-btn" id="btn-delete-all-posts">⚠️ すべての投稿を完全に削除する</button>
-      </div>
-      <h3>📝 投稿一覧（個別削除）</h3>
-      <div style="overflow-x: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>投稿日時</th>
-              <th>投稿者</th>
-              <th>内容</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="posts-table-body">
-            <tr>
-              <td colspan="4" style="text-align: center; color: #71767b;">投稿を読み込み中...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 3: ユーザー管理 -->
-    <div id="tab-users" class="tab-content">
-      <div class="danger-zone">
-        <h3>⚠️ 全アカウント一括凍結</h3>
-        <p>管理者を除くすべての一般アカウントを一時的に凍結状態にします。</p>
-        <button class="danger-btn" id="btn-freeze-all-users">🚨 全一般アカウントを凍結する</button>
-        <button id="btn-unfreeze-all-users" style="background: #10b981; margin-left: 10px;">🔓 全アカウントの凍結を解除する</button>
-      </div>
-      <h3>👥 アカウント一覧</h3>
-      <div style="overflow-x: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>ユーザーID</th>
-              <th>UID</th>
-              <th>ステータス</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="users-table-body">
-            <tr>
-              <td colspan="4" style="text-align: center; color: #71767b;">ユーザーデータを読み込み中...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 4: お知らせ・パッチノート管理（新規追加！） -->
-    <div id="tab-news" class="tab-content">
-      <div class="form-box">
-        <h3>➕ 新しいお知らせ・Q&Aの投稿</h3>
-        <label>カテゴリ</label>
-        <select id="news-category">
-          <option value="patchnote">🚀 パッチノート (更新履歴)</option>
-          <option value="qa">❓ Q&A (よくある質問)</option>
+    <!-- 1. お知らせ投稿パネル -->
+    <div id="panel-announcement" class="panel-section active">
+      <div class="card">
+        <h2>新規お知らせ / Q&A 投稿</h2>
+        <select id="announcement-category">
+          <option value="patchnote">パッチノート（アップデート）</option>
+          <option value="qa">Q&A・ヘルプ</option>
         </select>
-        
-        <label>タイトル</label>
-        <input type="text" id="news-title" placeholder="例: v1.2.0 アプデ内容 / ログインできない時は？">
-        
-        <label>本文（改行可）</label>
-        <textarea id="news-content" placeholder="詳細な内容を入力してください..."></textarea>
-        
-        <button id="btn-add-news" style="width: 100%; padding: 12px; margin-top: 10px;">📢 投稿する</button>
+        <input type="text" id="announcement-title" placeholder="タイトルを入力">
+        <textarea id="announcement-content" placeholder="本文を入力..."></textarea>
+        <button class="btn-submit" id="btn-send-announcement">送信する</button>
       </div>
 
-      <h3>📋 投稿済みお知らせ一覧</h3>
-      <div style="overflow-x: auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>投稿日時</th>
-              <th>カテゴリ</th>
-              <th>タイトル</th>
-              <th>本文</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="news-table-body">
-            <tr>
-              <td colspan="5" style="text-align: center; color: #71767b;">お知らせを読み込み中...</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="card">
+        <h2>投稿済みお知らせ一覧</h2>
+        <div id="announcement-list" class="loading">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 2. ユーザー管理パネル（BAN準備済み） -->
+    <div id="panel-users" class="panel-section">
+      <div class="card">
+        <h2>登録ユーザー一覧</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>表示名 / ID</th>
+                <th>ステータス</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="user-table-body">
+              <tr><td colspan="3" class="loading">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 投稿監視・削除パネル -->
+    <div id="panel-posts" class="panel-section">
+      <div class="card">
+        <h2>最近の投稿</h2>
+        <div id="post-monitor-list" class="loading">読み込み中...</div>
       </div>
     </div>
 
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, remove, update, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
-      authDomain: "takei-netplus.firebaseapp.com",
-      databaseURL: "https://takei-netplus-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "takei-netplus",
-      storageBucket: "takei-netplus.firebasestorage.app",
-      messagingSenderId: "180284787102",
-      appId: "1:180284787102:web:4c9880b6930f323a94ee8f",
-      measurementId: "G-HM4ELHCT3V"
-    };
-
-    let app, db;
-    try {
-      app = initializeApp(firebaseConfig);
-      db = getDatabase(app);
-    } catch (e) {
-      showError("Firebaseの初期化に失敗しました。設定情報を確認してください: " + e.message);
-    }
-
-    const DM_PATH = 'direct_messages'; 
-    const USERS_PATH = 'users';
-    const POSTS_PATH = 'posts';
-    const NEWS_PATH = 'announcements'; // お知らせ用のDBパス
-
-    let allDMs = [];
-    let rawUsersData = {}; 
-    let usersMap = {}; 
-    let firstLoadFinished = false;
-
-    function showError(msg) {
-      const errBox = document.getElementById('connection-error');
-      errBox.style.display = 'block';
-      errBox.textContent = msg;
-    }
-
-    // デスクトップ通知
-    document.getElementById('btn-request-notif').onclick = () => {
-      Notification.requestPermission().then(permission => {
-        if (permission === 'granted') alert('通知が有効になりました。');
-      });
-    };
-
-    // 1. ユーザー監視
-    onValue(ref(db, USERS_PATH), (snapshot) => {
-      try {
-        rawUsersData = snapshot.val() || {};
-        usersMap = {};
-        Object.keys(rawUsersData).forEach(uid => {
-          usersMap[uid] = rawUsersData[uid].userLoginId || "unknown";
-        });
-        renderUsersTable();
-        loadAndParseDMs();
-      } catch (err) {
-        console.error("ユーザーパースエラー:", err);
-        showError("ユーザーデータの取得中にエラーが発生しました。");
-      }
-    }, (error) => {
-      console.error("ユーザー取得失敗:", error);
-      showError("データベースの読み込み権限がありません。セキュリティルールを確認してください。");
-    });
-
-    // 2. DM監視
-    function loadAndParseDMs() {
-      onValue(ref(db, DM_PATH), (snapshot) => {
-        try {
-          const data = snapshot.val();
-          const tempDMs = [];
-
-          if (data) {
-            Object.keys(data).forEach(roomKey => {
-              const uids = roomKey.split("_");
-              const thread = data[roomKey];
-              if (thread && typeof thread === 'object') {
-                Object.keys(thread).forEach(msgId => {
-                  const msg = thread[msgId];
-                  if (msg) {
-                    const sUid = msg.senderId;
-                    const rUid = uids.find(id => id !== sUid) || "unknown";
-                    const senderLoginId = usersMap[sUid] || sUid || '不明';
-                    const receiverLoginId = usersMap[rUid] || rUid || '不明';
-
-                    tempDMs.push({
-                      rawTimestamp: msg.createdAt || 0,
-                      timestamp: msg.createdAt ? new Date(msg.createdAt).toLocaleString('ja-JP') : '不明',
-                      senderId: senderLoginId,
-                      receiverId: receiverLoginId,
-                      text: msg.text || ''
-                    });
-                  }
-                });
-              }
-            });
-          }
-
-          if (firstLoadFinished && tempDMs.length > allDMs.length) {
-            triggerDMAlert();
-          }
-          
-          allDMs = tempDMs;
-          firstLoadFinished = true;
-          renderDMLogs(allDMs);
-        } catch (err) {
-          console.error("DMパースエラー:", err);
-        }
-      }, (error) => {
-        console.error("DM取得失敗:", error);
-        document.getElementById('dm-log-table-body').innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">DMを取得できませんでした。</td></tr>`;
-      });
-    }
-
-    function triggerDMAlert() {
-      document.getElementById('dm-alert-badge').style.display = 'inline-block';
-      document.title = "🔴 【新着DM】takei.net plus - 管理パネル";
-      if (Notification.permission === 'granted') {
-        new Notification("📬 新着メッセージを受信しました");
-      }
-    }
-
-    function resetDMAlert() {
-      document.getElementById('dm-alert-badge').style.display = 'none';
-      document.title = "takei.net plus - 管理者用パネル";
-    }
-
-    function renderDMLogs(logs) {
-      const tbody = document.getElementById('dm-log-table-body');
-      tbody.innerHTML = '';
-      if (logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #71767b;">該当するDMログはありません。</td></tr>`;
-        return;
-      }
-      logs.sort((a, b) => b.rawTimestamp - a.rawTimestamp);
-      logs.forEach(log => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td style="white-space: nowrap;">${log.timestamp}</td>
-          <td style="font-weight: bold; color: #1d9bf0;">@${log.senderId}</td>
-          <td style="font-weight: bold; color: #10b981;">@${log.receiverId}</td>
-          <td style="word-break: break-all;">${log.text}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    // 検索処理
-    document.getElementById('btn-search-dm').onclick = () => {
-      const senderFilter = document.getElementById('search-sender').value.toLowerCase().trim();
-      const receiverFilter = document.getElementById('search-receiver').value.toLowerCase().trim();
-      const textFilter = document.getElementById('search-text').value.toLowerCase().trim();
-      const filtered = allDMs.filter(log => {
-        return log.senderId.toLowerCase().includes(senderFilter) &&
-               log.receiverId.toLowerCase().includes(receiverFilter) &&
-               log.text.toLowerCase().includes(textFilter);
-      });
-      renderDMLogs(filtered);
-    };
-
-    document.getElementById('btn-reset-dm').onclick = () => {
-      document.getElementById('search-sender').value = '';
-      document.getElementById('search-receiver').value = '';
-      document.getElementById('search-text').value = '';
-      renderDMLogs(allDMs);
-    };
-
-    // 3. 投稿監視
-    onValue(ref(db, POSTS_PATH), (snapshot) => {
-      try {
-        const postsData = snapshot.val();
-        const tbody = document.getElementById('posts-table-body');
-        tbody.innerHTML = '';
-
-        if (!postsData) {
-          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #71767b;">投稿はありません。</td></tr>`;
-          return;
-        }
-
-        const postsList = [];
-        Object.keys(postsData).forEach(postId => {
-          const post = postsData[postId];
-          if (post) {
-            postsList.push({
-              id: postId,
-              createdAt: post.createdAt || 0,
-              timestamp: post.createdAt ? new Date(post.createdAt).toLocaleString('ja-JP') : '不明',
-              userId: usersMap[post.userId] || post.userId || '不明',
-              text: post.text || ''
-            });
-          }
-        });
-
-        postsList.sort((a, b) => b.createdAt - a.createdAt);
-        postsList.forEach(post => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td style="white-space: nowrap;">${post.timestamp}</td>
-            <td style="font-weight: bold; color: #1d9bf0;">@${post.userId}</td>
-            <td style="word-break: break-all;">${post.text}</td>
-            <td><button class="danger-btn" onclick="deletePost('${post.id}')">削除</button></td>
-          `;
-          tbody.appendChild(tr);
-        });
-      } catch (err) {
-        console.error("投稿パースエラー:", err);
-      }
-    }, (error) => {
-      console.error("投稿取得失敗:", error);
-      document.getElementById('posts-table-body').innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">投稿を取得できませんでした。</td></tr>`;
-    });
-
-    window.deletePost = function(postId) {
-      if (confirm("この投稿を本当に削除しますか？")) {
-        remove(ref(db, `${POSTS_PATH}/${postId}`))
-          .then(() => alert("投稿を削除しました。"))
-          .catch(err => alert("削除に失敗しました: " + err.message));
-      }
-    };
-
-    document.getElementById('btn-delete-all-posts').onclick = () => {
-      if (confirm("🚨 本当にすべての投稿を完全に消去しますか？")) {
-        remove(ref(db, POSTS_PATH))
-          .then(() => alert("すべての投稿を削除しました。"))
-          .catch(err => alert("全消去に失敗しました: " + err.message));
-      }
-    };
-
-    // 4. ユーザー表示
-    function renderUsersTable() {
-      const tbody = document.getElementById('users-table-body');
-      tbody.innerHTML = '';
-      const uids = Object.keys(rawUsersData);
-      if (uids.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #71767b;">登録ユーザーはいません。</td></tr>`;
-        return;
-      }
-      uids.forEach(uid => {
-        const user = rawUsersData[uid];
-        const loginId = user.userLoginId || "未設定";
-        const isFrozen = user.status === 'frozen';
-        const statusText = isFrozen ? "❌ 凍結中" : "🟢 アクティブ";
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td style="font-weight: bold;">@${loginId}</td>
-          <td style="font-size: 12px; color: #71767b;">${uid}</td>
-          <td style="color: ${isFrozen ? '#ef4444' : '#10b981'}">${statusText}</td>
-          <td>
-            ${isFrozen ? 
-              `<button style="background:#10b981;" onclick="toggleFreeze('${uid}', false)">凍結解除</button>` : 
-              `<button class="warning-btn" onclick="toggleFreeze('${uid}', true)">凍結する</button>`
-            }
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    window.toggleFreeze = function(uid, shouldFreeze) {
-      const status = shouldFreeze ? 'frozen' : 'active';
-      update(ref(db, `${USERS_PATH}/${uid}`), { status: status })
-        .then(() => alert(`ユーザーを ${status} に変更しました。`))
-        .catch(err => alert("エラー: " + err.message));
-    };
-
-    document.getElementById('btn-freeze-all-users').onclick = () => {
-      if (confirm("⚠️ すべての一般アカウントを凍結しますか？")) {
-        const updates = {};
-        Object.keys(rawUsersData).forEach(uid => {
-          updates[`${USERS_PATH}/${uid}/status`] = 'frozen';
-        });
-        update(ref(db), updates)
-          .then(() => alert("一括凍結しました。"))
-          .catch(err => alert("エラー: " + err.message));
-      }
-    };
-
-    document.getElementById('btn-unfreeze-all-users').onclick = () => {
-      if (confirm("すべての一般アカウントの凍結を解除しますか？")) {
-        const updates = {};
-        Object.keys(rawUsersData).forEach(uid => {
-          updates[`${USERS_PATH}/${uid}/status`] = 'active';
-        });
-        update(ref(db), updates)
-          .then(() => alert("一括解除しました。"))
-          .catch(err => alert("エラー: " + err.message));
-      }
-    };
-
-    // 5. お知らせ・Q&A管理機能（新規追加！）
-    document.getElementById('btn-add-news').onclick = async () => {
-      const category = document.getElementById('news-category').value;
-      const title = document.getElementById('news-title').value.trim();
-      const content = document.getElementById('news-content').value.trim();
-
-      if (!title || !content) {
-        alert("タイトルと本文を入力してください。");
-        return;
-      }
-
-      try {
-        await push(ref(db, NEWS_PATH), {
-          category: category,
-          title: title,
-          content: content,
-          createdAt: serverTimestamp()
-        });
-        alert("お知らせを投稿しました！");
-        document.getElementById('news-title').value = '';
-        document.getElementById('news-content').value = '';
-      } catch (err) {
-        alert("投稿エラー: " + err.message);
-      }
-    };
-
-    // お知らせ一覧の取得・監視
-    onValue(ref(db, NEWS_PATH), (snapshot) => {
-      const newsData = snapshot.val();
-      const tbody = document.getElementById('news-table-body');
-      tbody.innerHTML = '';
-
-      if (!newsData) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #71767b;">お知らせはありません。</td></tr>`;
-        return;
-      }
-
-      const newsList = [];
-      Object.keys(newsData).forEach(id => {
-        const item = newsData[id];
-        if (item) {
-          newsList.push({
-            id: id,
-            category: item.category || 'patchnote',
-            title: item.title || '',
-            content: item.content || '',
-            createdAt: item.createdAt || 0,
-            timestamp: item.createdAt ? new Date(item.createdAt).toLocaleString('ja-JP') : '不明'
-          });
-        }
-      });
-
-      newsList.sort((a, b) => b.createdAt - a.createdAt);
-      newsList.forEach(item => {
-        const tr = document.createElement('tr');
-        const isPatch = item.category === 'patchnote';
-        const tagHtml = isPatch 
-          ? `<span class="tag tag-patch">パッチノート</span>` 
-          : `<span class="tag tag-qa">Q&A</span>`;
-
-        tr.innerHTML = `
-          <td style="white-space: nowrap;">${item.timestamp}</td>
-          <td>${tagHtml}</td>
-          <td style="font-weight: bold;">${item.title}</td>
-          <td style="word-break: break-all; white-space: pre-wrap;">${item.content}</td>
-          <td><button class="danger-btn" onclick="deleteNews('${item.id}')">削除</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    });
-
-    window.deleteNews = function(newsId) {
-      if (confirm("このお知らせを削除しますか？")) {
-        remove(ref(db, `${NEWS_PATH}/${newsId}`))
-          .then(() => alert("削除しました。"))
-          .catch(err => alert("削除失敗: " + err.message));
-      }
-    };
-
-    // タブ切り替え処理
-    window.switchTab = function(tabId) {
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.getElementById(tabId).classList.add('active');
-      event.target.classList.add('active');
-      if (tabId === 'tab-dm') resetDMAlert();
-    };
-  </script>
+  <!-- JavaScript 処理部分 -->
+  <script type="module" src="admin.js"></script>
 </body>
 </html>
