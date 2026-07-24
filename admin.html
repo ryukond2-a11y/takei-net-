@@ -255,7 +255,7 @@
       </div>
     </div>
 
-    <!-- 2. ユーザー管理パネル（BAN準備済み） -->
+    <!-- 2. ユーザー管理パネル -->
     <div id="panel-users" class="panel-section">
       <div class="card">
         <h2>登録ユーザー一覧</h2>
@@ -286,7 +286,193 @@
 
   </div>
 
-  <!-- JavaScript 処理部分 -->
-  <script type="module" src="admin.js"></script>
+  <!-- JavaScript 埋め込み部分 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getDatabase, ref, onValue, push, set, remove 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { 
+      getAuth, onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBdT1yWLsKQ8hyktm0TgCtkc3jLKlOVllY",
+      authDomain: "takei-netplus.firebaseapp.com",
+      databaseURL: "https://takei-netplus-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "takei-netplus",
+      storageBucket: "takei-netplus.firebasestorage.app",
+      messagingSenderId: "180284787102",
+      appId: "1:180284787102:web:4c9880b6930f323a94ee8f",
+      measurementId: "G-HM4ELHCT3V"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+
+    // タブ切替処理
+    window.switchTab = function(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.panel-section').forEach(panel => panel.classList.remove('active'));
+
+      event.target.classList.add('active');
+      document.getElementById(`panel-${tabName}`).classList.add('active');
+    };
+
+    // 🔐 認証チェック後、データを読み込み
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("管理者認証OK:", user.uid);
+        loadAnnouncements();
+        loadUsers();
+        loadPosts();
+      } else {
+        alert("管理者アクセスにはログインが必要です。");
+        window.location.href = "index.html";
+      }
+    });
+
+    // 1. お知らせの作成・一覧読み込み
+    document.getElementById('btn-send-announcement')?.addEventListener('click', async () => {
+      const category = document.getElementById('announcement-category').value;
+      const title = document.getElementById('announcement-title').value.trim();
+      const content = document.getElementById('announcement-content').value.trim();
+
+      if (!title || !content) {
+        alert("タイトルと本文を入力してください。");
+        return;
+      }
+
+      try {
+        const newRef = push(ref(db, 'announcements'));
+        await set(newRef, {
+          category: category,
+          title: title,
+          content: content,
+          createdAt: Date.now()
+        });
+
+        alert("お知らせを投稿しました！");
+        document.getElementById('announcement-title').value = '';
+        document.getElementById('announcement-content').value = '';
+      } catch (e) {
+        alert("投稿失敗: " + e.message);
+      }
+    });
+
+    function loadAnnouncements() {
+      onValue(ref(db, 'announcements'), (snap) => {
+        const listEl = document.getElementById('announcement-list');
+        const data = snap.val();
+        if (!data) {
+          listEl.innerHTML = '<p style="color:var(--text-sub); text-align:center;">なし</p>';
+          return;
+        }
+
+        listEl.innerHTML = '';
+        Object.keys(data).reverse().forEach(id => {
+          const item = data[id];
+          const div = document.createElement('div');
+          div.className = 'post-item';
+          div.innerHTML = `
+            <div class="post-header">
+              <span>[${item.category === 'patchnote' ? 'パッチ' : 'Q&A'}] ${item.title}</span>
+              <button class="btn-action danger" onclick="deleteAnnouncement('${id}')">削除</button>
+            </div>
+            <div class="post-body">${item.content}</div>
+          `;
+          listEl.appendChild(div);
+        });
+      });
+    }
+
+    window.deleteAnnouncement = function(id) {
+      if (confirm("このお知らせを削除しますか？")) {
+        remove(ref(db, `announcements/${id}`));
+      }
+    };
+
+    // 2. ユーザー一覧読み込み＆BAN処理
+    function loadUsers() {
+      onValue(ref(db, 'users'), (snap) => {
+        const tbody = document.getElementById('user-table-body');
+        const data = snap.val();
+        if (!data) {
+          tbody.innerHTML = '<tr><td colspan="3">ユーザーがいません</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        Object.keys(data).forEach(uid => {
+          const u = data[uid];
+          const tr = document.createElement('tr');
+          const isBanned = u.isBanned || false;
+
+          tr.innerHTML = `
+            <td>
+              <div style="font-weight:bold;">${u.displayName || '名無し'}</div>
+              <div style="color:var(--text-sub); font-size:11px;">@${u.userLoginId || 'unknown'}</div>
+            </td>
+            <td>
+              <span class="badge ${isBanned ? 'badge-banned' : 'badge-user'}">
+                ${isBanned ? 'BAN中' : '正常'}
+              </span>
+            </td>
+            <td>
+              <button class="btn-action ${isBanned ? '' : 'danger'}" onclick="toggleBan('${uid}', ${isBanned})">
+                ${isBanned ? '解除' : 'BAN'}
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      });
+    }
+
+    window.toggleBan = async function(uid, currentStatus) {
+      const nextStatus = !currentStatus;
+      const actionText = nextStatus ? "アカウントをBAN（利用停止）" : "BANを解除";
+      
+      if (confirm(`このユーザーを${actionText}しますか？`)) {
+        await set(ref(db, `users/${uid}/isBanned`), nextStatus);
+        alert(`${actionText}しました。`);
+      }
+    };
+
+    // 3. 投稿一覧・不適切な投稿の即時削除
+    function loadPosts() {
+      onValue(ref(db, 'posts'), (snap) => {
+        const container = document.getElementById('post-monitor-list');
+        const data = snap.val();
+        if (!data) {
+          container.innerHTML = '<p style="color:var(--text-sub); text-align:center;">投稿がありません</p>';
+          return;
+        }
+
+        container.innerHTML = '';
+        const posts = Object.keys(data).map(k => ({ id: k, ...data[k] })).sort((a, b) => b.createdAt - a.createdAt);
+
+        posts.slice(0, 30).forEach(post => {
+          const div = document.createElement('div');
+          div.className = 'post-item';
+          div.innerHTML = `
+            <div class="post-header">
+              <span>投稿ID: ${post.id.slice(-6)} (${post.category || 'general'})</span>
+              <button class="btn-action danger" onclick="deletePost('${post.id}')">削除</button>
+            </div>
+            <div class="post-body">${post.content}</div>
+          `;
+          container.appendChild(div);
+        });
+      });
+    }
+
+    window.deletePost = function(postId) {
+      if (confirm("この投稿を削除しますか？")) {
+        remove(ref(db, `posts/${postId}`));
+      }
+    };
+  </script>
 </body>
 </html>
