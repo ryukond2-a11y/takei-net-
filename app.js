@@ -7,9 +7,11 @@ import {
   limitToLast, 
   onValue,
   get,
-  push,  // 👈 追加！
-  child, // 👈 追加！
-  set    // 👈 780行目で使っているので一緒に追加！
+  push,
+  child,
+  set,
+  remove,          // 👈 追加！
+  runTransaction   // 👈 追加！
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 import {
