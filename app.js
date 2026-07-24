@@ -618,11 +618,12 @@ function renderPost(post, isThreadDetail = false) {
       });
     }
 
-    // ❤️ いいねボタン（1人1個まで！）
+// ❤️ いいねボタン（1人1個まで！）
     const likeBtn = postElement.querySelector(`#action-like-${post.id}`);
     if (likeBtn && myUid) {
       const userLikeRef = ref(db, `likes/${post.id}/${myUid}`);
-      // 自分がすでにいいねしているかリアルタイム監視
+      
+      // ① 自分がすでにいいねしているかリアルタイム監視
       onValue(userLikeRef, (likeSnap) => {
         if (likeSnap.exists()) {
           likeBtn.classList.add("liked");
@@ -631,13 +632,25 @@ function renderPost(post, isThreadDetail = false) {
         }
       });
 
+      // ② 投稿自体の変更（likeCount）をリアルタイム監視して画面の数字を更新
+      const postRef = ref(db, `posts/${post.id}`);
+      onValue(postRef, (postSnap) => {
+        const postData = postSnap.val();
+        if (postData) {
+          const countNumSpan = postElement.querySelector(`#like-count-num-${post.id}`);
+          if (countNumSpan) {
+            countNumSpan.innerText = postData.likeCount || 0;
+          }
+        }
+      });
+
+      // ③ いいねボタンのクリックイベント
       likeBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
         const likeCheck = await get(userLikeRef);
-        const postRef = ref(db, `posts/${post.id}`);
 
         if (likeCheck.exists()) {
-          // すでにいいねしている場合は、いいね解除（トグル）
+          // すでにいいねしている場合は解除
           await remove(userLikeRef);
           await runTransaction(postRef, (currentPost) => {
             if (currentPost) {
@@ -646,19 +659,20 @@ function renderPost(post, isThreadDetail = false) {
             return currentPost;
           });
         } else {
-          // いいねしていない場合は、新規いいね登録
+          // いいねしていない場合は新規登録
           await set(userLikeRef, true);
           await runTransaction(postRef, (currentPost) => {
             if (currentPost) {
               currentPost.likeCount = (currentPost.likeCount || 0) + 1;
-              sendNotification(currentPost.senderId, "like", myUid, post.id);
+              if (typeof sendNotification === "function") {
+                sendNotification(currentPost.senderId, "like", myUid, post.id);
+              }
             }
             return currentPost;
           });
         }
       });
     }
-
     // 🔗 引用元の実体読み込み処理（クラッシュ対策の安全版）
     if (post.quotedPostId) {
       const quoteRef = ref(db, `posts/${post.quotedPostId}`);
