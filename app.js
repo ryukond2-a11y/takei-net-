@@ -773,7 +773,7 @@ if (backToHomeFromThread) {
   });
 }
 
-// --- 🚀 新規投稿処理（画像対応版） ---
+// --- 🚀 新規投稿処理（返信・引用カウント連動版） ---
 async function submitPostData(content, parentPostId = null, quotedPostId = null, imageBase64 = null) {
   const user = auth.currentUser;
   if (!user) return;
@@ -792,24 +792,39 @@ async function submitPostData(content, parentPostId = null, quotedPostId = null,
 
   if (parentPostId) postData.parentPostId = parentPostId;
   if (quotedPostId) postData.quotedPostId = quotedPostId;
-  if (imageBase64) postData.image = imageBase64; // 📸 画像データを追加！
+  if (imageBase64) postData.image = imageBase64;
 
+  // 新規投稿を保存
   await set(ref(db, `posts/${newPostKey}`), postData);
 
+  // 💬 返信の場合：親投稿の replyCount を +1
+  if (parentPostId) {
+    const parentRef = ref(db, `posts/${parentPostId}`);
+    await runTransaction(parentRef, (currentPost) => {
+      if (currentPost) {
+        currentPost.replyCount = (currentPost.replyCount || 0) + 1;
+        if (typeof sendNotification === "function") {
+          sendNotification(currentPost.senderId, "reply", user.uid, newPostKey);
+        }
+      }
+      return currentPost;
+    });
+  }
 
-
+  // 🔄 引用の場合：引用元投稿の quoteCount を +1
   if (quotedPostId) {
     const quoteRef = ref(db, `posts/${quotedPostId}`);
     await runTransaction(quoteRef, (currentPost) => {
       if (currentPost) {
         currentPost.quoteCount = (currentPost.quoteCount || 0) + 1;
-        sendNotification(currentPost.senderId, "quote", user.uid, newPostKey);
+        if (typeof sendNotification === "function") {
+          sendNotification(currentPost.senderId, "quote", user.uid, newPostKey);
+        }
       }
       return currentPost;
     });
   }
 }
-
 // ==========================================
 // 📌 新規投稿ボタン（画像対応・リセット機能付き）
 // ==========================================
