@@ -1432,7 +1432,33 @@ function showNotificationSection() {
 
 if (navNotif) navNotif.addEventListener("click", showNotificationSection);
 if (mNavNotif) mNavNotif.addEventListener("click", showNotificationSection);
+// 💡 URLからパラメータを取得して投稿欄に初期セットする関数
+function checkUrlAndSetPostText() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const postText = urlParams.get('post');
 
+  if (postText) {
+    // takei.net の投稿欄（textarea）のIDを指定します
+    // ※ 実際の投稿欄のIDが 'post-input' などであれば書き換えてください
+    const postArea = document.getElementById('post-text') || document.getElementById('post-input') || document.querySelector('textarea');
+
+    if (postArea) {
+      postArea.value = postText;
+      
+      // フォーカスを当ててスクロール（ユーザーがすぐ投稿できるようにする）
+      postArea.focus();
+      postArea.scrollIntoView({ behavior: 'smooth' });
+
+      // URLのパラメータ(?post=...)を綺麗に消去（再読み込み時の重複セット防止）
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+}
+
+// 💡 ページ読み込み完了時（DOMContentLoaded や window.onload 内）に実行
+window.addEventListener('DOMContentLoaded', () => {
+  checkUrlAndSetPostText();
+});
 function showDmSection() {
   resetActiveNav();
   if (mNavDms) mNavDms.classList.add("active");
