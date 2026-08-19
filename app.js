@@ -1519,3 +1519,23 @@ if (btnBackDm) {
     setDisplay("dm-users-list", "block");
   });
 }
+// --- URLパラメータ(?text=)から投稿欄へ自動入力する処理 ---
+window.addEventListener("DOMContentLoaded", () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const shareText = urlParams.get("text");
+
+  if (shareText) {
+    // 既存のtextareaのIDが「tweet-input」でない場合はここ書き換えてください
+    const tweetInput = document.getElementById("tweet-input") || document.querySelector("textarea"); 
+
+    if (tweetInput) {
+      tweetInput.value = shareText; // decodeURIComponentはURLSearchParamsが自動で行うためそのまま代入
+      
+      // 入力イベントを発火させて画面に反映させる
+      tweetInput.dispatchEvent(new Event("input"));
+      
+      // 綺麗にするためURLからパラメータを消去（リロード時の二重入力を防ぐ）
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+});
