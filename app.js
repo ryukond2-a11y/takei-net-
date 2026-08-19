@@ -567,7 +567,7 @@ function renderPost(post, isThreadDetail = false) {
           <span>${formatDate(post.createdAt)}</span>
         </div>
         <div class="post-content">${linkify(post.content)}</div>
-        ${imageHTML} <!-- 👈 ここに画像がレンダリングされるよ！ -->
+        ${imageHTML}
         ${quotedHTML}
         <div class="post-actions">
           <div class="action-btn" id="action-reply-${post.id}">💬 <span>${replyCount}</span></div>
