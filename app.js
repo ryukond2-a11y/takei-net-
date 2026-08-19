@@ -515,34 +515,33 @@ function renderPost(post, isThreadDetail = false) {
 
   // ユーザー情報を引く
   const userRef = ref(db, `users/${post.senderId}`);
-  onValue(userRef, (userSnap) => {
-    const uData = userSnap.val() || {};
-    const displayName = uData.displayName || "名無し";
-    const userLoginId = uData.userLoginId || "unknown";
-    const photoURL = uData.photoURL || "🧪";
+  get(userRef).then((userSnap) => {
+  const uData = userSnap.val() || {};
+  const displayName = uData.displayName || "名無し";
+  const userLoginId = uData.userLoginId || "unknown";
+  const photoURL = uData.photoURL || "🧪";
 
-    let avatarStyle = "";
-    let avatarText = "";
-    if (photoURL.startsWith("data:image")) {
-      avatarStyle = `background-image: url(${photoURL})`;
-    } else {
-      avatarText = photoURL;
-    }
+  let avatarStyle = "";
+  let avatarText = "";
+  if (photoURL.startsWith("data:image")) {
+    avatarStyle = `background-image: url(${photoURL})`;
+  } else {
+    avatarText = photoURL;
+  }
 
-    const replyCount = post.replyCount || 0;
-    const quoteCount = post.quoteCount || 0;
-    const likeCount = post.likeCount || 0;
+  const replyCount = post.replyCount || 0;
+  const quoteCount = post.quoteCount || 0;
+  const likeCount = post.likeCount || 0;
 
-    // 📸 【超重要】データベースに画像が保存されていたら表示用のHTMLを作る
-    let imageHTML = "";
-    if (post.image) {
-      imageHTML = `
-        <div class="post-image-container" style="margin-top: 10px; max-width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #2f3336;">
-          <img src="${post.image}" style="width: 100%; max-height: 350px; object-fit: cover; display: block;" alt="投稿画像">
-        </div>
-      `;
-    }
-
+  // 📸 データベースに画像が保存されていたら表示用のHTMLを作る
+  let imageHTML = "";
+  if (post.image) {
+    imageHTML = `
+      <div class="post-image-container" style="margin-top: 10px; max-width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #2f3336;">
+        <img src="${post.image}" style="width: 100%; max-height: 350px; object-fit: cover; display: block;" alt="投稿画像">
+      </div>
+    `;
+  }
     let quotedHTML = "";
     if (post.quotedPostId) {
       quotedHTML = `
