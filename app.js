@@ -1539,3 +1539,21 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 });
+// 🔗 URLを自動でクリック可能なリンク（aタグ）に変換する関数
+function linkify(text) {
+  if (!text) return "";
+  
+  // HTMLエスケープ（XSS対策）
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+  // URLを検出して <a> タグに変換
+  const urlPattern = /(https?:\/\/[^\s]+)/g;
+  return escaped.replace(urlPattern, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #1d9bf0; text-decoration: underline;" onclick="event.stopPropagation();">${url}</a>`;
+  });
+}
