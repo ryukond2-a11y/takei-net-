@@ -703,7 +703,7 @@ function renderPost(post, isThreadDetail = false) {
             <div style="font-weight: bold; margin-bottom: 4px; color: #fff; font-size: 13px;">
               ${quData.displayName || "名無し"} <span style="font-weight: normal; color: #71767b; font-size: 11px;">@${quData.userLoginId || "unknown"}</span>
             </div>
-            <div style="font-size: 13px; color: #e7e9ea;">${quotedPost.content}</div>
+            <div style="font-size: 13px; color: #e7e9ea;">${linkify(quotedPost.content)}</div>
           `;
         } catch (err) {
           console.error("引用ユーザー情報の取得に失敗:", err);
