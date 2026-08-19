@@ -566,7 +566,6 @@ function renderPost(post, isThreadDetail = false) {
           <span>·</span>
           <span>${formatDate(post.createdAt)}</span>
         </div>
-        // 修正後
         <div class="post-content">${linkify(post.content)}</div>
         ${imageHTML} <!-- 👈 ここに画像がレンダリングされるよ！ -->
         ${quotedHTML}
