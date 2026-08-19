@@ -1379,7 +1379,31 @@ if (closeProfileModalBtn) {
     setDisplay("profile-modal", "none");
   });
 }
+// --- 🎮 ゲーム結果を通常の投稿欄へ送信する処理 ---
 
+const btnShareScore = document.getElementById("btn-share-game-score");
+const tweetInput = document.getElementById("tweet-input"); // 既存の投稿用textarea/input
+
+if (btnShareScore) {
+  btnShareScore.addEventListener("click", () => {
+    if (currentScore === 0) return;
+
+    // 1. 投稿欄にセットするテキストを作成
+    const shareText = `🎮 ミニゲームで ${currentScore} 点を獲得しました！ #takei_game\n`;
+
+    // 2. ホーム画面（タイムライン）を表示
+    showHomeSection();
+
+    // 3. 既存の投稿入力欄にテキストを代入してフォーカスを当てる
+    if (tweetInput) {
+      tweetInput.value = shareText;
+      tweetInput.focus();
+      
+      // 入力欄の高さ調整イベント等があれば発火させる
+      tweetInput.dispatchEvent(new Event("input"));
+    }
+  });
+}
 const closeReplyModalBtn = document.getElementById("close-reply-modal");
 if (closeReplyModalBtn) {
   closeReplyModalBtn.addEventListener("click", () => {
